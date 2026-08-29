@@ -27,13 +27,9 @@ public class AgentService {
     AgentLifecycleHookService agentHook;
 
     /**
-     * 聊天方法, 通过chat返回数据
-     *
-     * @param message 用户消息
-     * @param sink    callback写入数据
+     * 在已解析的 Session 上执行一轮 chat（可在虚拟线程调用）。
      */
-    public void chat(String message, AgentEventSink sink) {
-        AgentSession session = agentSessionManager.getOrCreate();
+    public void chat(AgentSession session, String message, AgentEventSink sink) {
         session.addMessage(new AgentMessage.UserMessage(message));
 
         AgentRunContext runContext =

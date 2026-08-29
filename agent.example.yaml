@@ -28,8 +28,10 @@ agent:
         base-url: https://api.openai.com/v1
         model: gpt-4o
 
-  # v1：已加载，尚未在工具层强制执行
+  # 工具权限：allow | deny | ask
+  # ask 时 SSE 发出 ToolApprovalRequiredEvent，客户端 POST
+  #   /api/agent/session/approvals/{callId}/approve|deny
   permissions:
-    bash: allow   # allow | deny | ask（ask 预留）
-    write: allow
+    bash: ask
+    write: ask
     network: deny

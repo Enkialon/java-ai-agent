@@ -9,10 +9,14 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.example.agent.application.AgentService;
 import org.example.agent.application.event.AgentEvent;
+import org.example.agent.application.session.AgentSessionManager;
+import org.example.agent.domain.session.AgentSession;
 import org.jboss.resteasy.reactive.RestStreamElementType;
 
 /**
  * HTTP/SSE 适配层：Reactive 止步于此，Agent 核心跑在虚拟线程上。
+ * <p>
+ * Session 必须在请求线程解析：虚拟线程上 RequestScoped 不可用。
  */
 @Path("/api/agent/chat")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -21,15 +25,18 @@ public class AgentChatResource {
     @Inject
     AgentService agentService;
 
+    @Inject
+    AgentSessionManager sessionManager;
+
     @POST
     @Produces(MediaType.SERVER_SENT_EVENTS)
     @RestStreamElementType(MediaType.APPLICATION_JSON)
     public Multi<AgentEvent> chat(ChatRequest request) {
+        AgentSession session = sessionManager.getOrCreate();
         return Multi.createFrom().emitter(emitter ->
-                // 通过多线程执行+callback的方式执行, 减少代码复杂性, 不然完整的事件机制. 太复杂. 难以理解
                 Thread.startVirtualThread(() -> {
                     try {
-                        agentService.chat(request.message(), emitter::emit);
+                        agentService.chat(session, request.message(), emitter::emit);
                         emitter.complete();
                     } catch (Throwable error) {
                         emitter.fail(error);

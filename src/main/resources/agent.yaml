@@ -14,14 +14,8 @@ agent:
         api-key: ${DEEPSEEK_API_KEY}
         base-url: https://api.deepseek.com
         model: deepseek-v4-flash
-
-      openai:
-        type: openai
-        api-key: ${OPENAI_API_KEY:}
-        base-url: https://api.openai.com/v1
-        model: gpt-4o
-
-  # 权限占位（v1 仅加载，尚未强制执行）
+  # 工具权限：allow | deny | ask（ask 时 SSE 推送审批事件，需 POST approve/deny）
+  # bash → bash 工具；write → write/edit 工具；network 预留
   permissions:
     bash: allow
     write: allow
