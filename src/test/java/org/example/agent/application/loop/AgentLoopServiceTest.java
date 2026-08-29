@@ -162,6 +162,6 @@ class AgentLoopServiceTest {
                 name,
                 name,
                 "{\"type\":\"object\"}",
-                call -> new ToolResult(call.callId(), name + "-ok"));
+                call -> ToolResult.ok(call.callId(), name + "-ok"));
     }
 }

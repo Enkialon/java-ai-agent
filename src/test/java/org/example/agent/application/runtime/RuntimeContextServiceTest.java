@@ -47,7 +47,7 @@ class RuntimeContextServiceTest {
                 "queryOrder",
                 "查询订单",
                 "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}",
-                call -> new ToolResult(call.callId(), ""));
+                call -> ToolResult.ok(call.callId(), ""));
 
         promptRepository.saveSystemPrompt("You are a helpful agent.");
         promptRepository.saveAgentsMd("# AGENTS.md");

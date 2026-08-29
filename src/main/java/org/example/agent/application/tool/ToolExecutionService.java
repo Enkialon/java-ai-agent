@@ -42,9 +42,12 @@ public class ToolExecutionService {
         ToolResult result = tool.execute(toolCall);
 
         hooks.afterTool(context, toolCall, result);
+        String contentForSession = result.success()
+                ? result.content()
+                : "Error: " + result.content();
         context.session().addMessage(new AgentMessage.ToolResultMessage(
                 result.callId(),
-                result.result()));
-        sink.emit(new ToolExecutionEndEvent(result.callId(), result.result()));
+                contentForSession));
+        sink.emit(new ToolExecutionEndEvent(result.callId(), contentForSession));
     }
 }

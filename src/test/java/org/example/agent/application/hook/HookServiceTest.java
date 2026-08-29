@@ -61,7 +61,7 @@ class HookServiceTest {
 
         AgentRunContext context = newContext();
         ToolCall toolCall = new ToolCall("call_1", "execute", "{}");
-        ToolResult toolResult = new ToolResult("call_1", "ok");
+        ToolResult toolResult = ToolResult.ok("call_1", "ok");
 
         service.beforeTool(context, toolCall);
         service.afterTool(context, toolCall, toolResult);
