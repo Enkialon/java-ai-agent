@@ -2,46 +2,60 @@ package org.example.agent.application.loop;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.example.agent.application.hook.AgentHookService;
-import org.example.agent.application.llm.ContextBuilder;
-import org.example.agent.application.llm.LlmContext;
+import org.example.agent.application.event.AgentEvent.AgentEndEvent;
+import org.example.agent.application.event.AgentEvent.AgentStartEvent;
+import org.example.agent.application.event.AgentEventSink;
 import org.example.agent.application.runtime.AgentRunContext;
+import org.example.agent.application.tool.ToolExecutionService;
+import org.example.agent.domain.tool.ToolCall;
 
 /**
- * Agent Loop 入口：在给定 {@link AgentRunContext} 上执行一轮（或多轮）推理与 Tool 调用。
+ * Agent Loop：普通同步状态机，适合跑在虚拟线程上。
+ *
+ * <pre>
+ * AgentStart
+ *   → for turn
+ *        → ModelTurn
+ *        → 无 Tool → AgentEnd return
+ *        → 有 Tool → 逐个执行 → 下一轮
+ * </pre>
  */
 @ApplicationScoped
 public class AgentLoopService {
 
-    private final AgentHookService hooks;
-    private final ContextBuilder contextBuilder;
+    private static final int MAX_TURNS = 20;
+
+    private final ModelTurnService modelTurnService;
+    private final ToolExecutionService toolExecutionService;
 
     @Inject
-    public AgentLoopService(AgentHookService hooks, ContextBuilder contextBuilder) {
-        this.hooks = hooks;
-        this.contextBuilder = contextBuilder;
+    public AgentLoopService(
+            ModelTurnService modelTurnService,
+            ToolExecutionService toolExecutionService) {
+        this.modelTurnService = modelTurnService;
+        this.toolExecutionService = toolExecutionService;
     }
 
-    /**
-     * 执行 Agent Loop。
-     *
-     * @param runContext 本轮运行上下文（Session History + Runtime Context）
-     * @return 本轮运行结果
-     */
-    public AgentRunResult run(AgentRunContext runContext) {
-        hooks.beforeAgent(runContext);
-        try {
-            // 后续在此展开：beforeModel → 调模型 → afterModel → Tool 循环
-            hooks.beforeModel(runContext);
-            LlmContext llmContext = contextBuilder.build(runContext);
-            // 执行工具
+    public AgentRunResult run(AgentRunContext context, AgentEventSink sink) {
+        // 告诉用户开始执行任务了
+        sink.emit(new AgentStartEvent());
 
+        // 循环执行
+        for (int turn = 1; turn <= MAX_TURNS; turn++) {
+            // 执行模型
+            TurnResult result = modelTurnService.run(context, sink);
 
-            hooks.afterModel(runContext);
+            if (!result.hasToolCalls()) {
+                AgentRunResult runResult = new AgentRunResult(result.assistantText());
+                sink.emit(new AgentEndEvent(runResult));
+                return runResult;
+            }
 
-            return new AgentRunResult("");
-        } finally {
-            hooks.afterAgent(runContext);
+            for (ToolCall call : result.toolCalls()) {
+                toolExecutionService.execute(context, call, sink);
+            }
         }
+
+        throw new IllegalStateException("Agent exceeded max turns: " + MAX_TURNS);
     }
 }

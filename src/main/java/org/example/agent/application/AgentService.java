@@ -2,16 +2,18 @@ package org.example.agent.application;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.example.agent.api.AgentChatResource;
-import org.example.agent.application.hook.AgentHook;
+import org.example.agent.application.event.AgentEventSink;
+import org.example.agent.application.hook.AgentLifecycleHookService;
 import org.example.agent.application.loop.AgentLoopService;
-import org.example.agent.application.loop.AgentRunResult;
 import org.example.agent.application.runtime.AgentRunContext;
 import org.example.agent.application.runtime.RuntimeContextService;
 import org.example.agent.application.session.AgentSessionManager;
 import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.session.message.AgentMessage;
 
+/**
+ * Agent 应用入口：普通同步编排，通过 {@link AgentEventSink} 推送过程事件。
+ */
 @ApplicationScoped
 public class AgentService {
 
@@ -21,23 +23,28 @@ public class AgentService {
     RuntimeContextService runtimeContextService;
     @Inject
     AgentLoopService agentLoopService;
-    AgentHook agentHook;
+    @Inject
+    AgentLifecycleHookService agentHook;
 
-    public AgentChatResource.ChatResponse chat(String message) {
-        // 获取消息
-        AgentSession agentSession = agentSessionManager.getOrCreate();
-        //添加消息
-        agentSession.addMessage(new AgentMessage.UserMessage(message));
-        //组装上下文
+    /**
+     * 聊天方法, 通过chat返回数据
+     *
+     * @param message 用户消息
+     * @param sink    callback写入数据
+     */
+    public void chat(String message, AgentEventSink sink) {
+        AgentSession session = agentSessionManager.getOrCreate();
+        session.addMessage(new AgentMessage.UserMessage(message));
+
         AgentRunContext runContext =
-                runtimeContextService.createRunContext(agentSession);
-        // 执行hook
-        agentHook.beforeAgent(runContext);
-        AgentRunResult result = agentLoopService.run(runContext);
-        agentHook.afterAgent(runContext);
+                runtimeContextService.createRunContext(session);
 
-        // 保存信息
-        agentSessionManager.save(agentSession);
-        return new AgentChatResource.ChatResponse(result.message());
+        agentHook.beforeAgent(runContext);
+        try {
+            agentLoopService.run(runContext, sink);
+        } finally {
+            agentHook.afterAgent(runContext);
+            agentSessionManager.save(session);
+        }
     }
 }

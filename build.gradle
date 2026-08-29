@@ -9,11 +9,14 @@ version = '1.0-SNAPSHOT'
 dependencies {
     implementation enforcedPlatform("io.quarkus.platform:quarkus-bom:3.39.1")
 
-    // HTTP REST + JSON
+    // HTTP REST + JSON + SSE
     implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.smallrye.reactive:mutiny'
 
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
+    testImplementation 'io.smallrye.reactive:mutiny-test-utils'
 
 
     testImplementation platform('org.junit:junit-bom:5.10.0')

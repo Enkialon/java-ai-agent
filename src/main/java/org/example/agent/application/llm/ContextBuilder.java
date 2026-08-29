@@ -9,30 +9,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 组装本轮 LLM Context：
+ * 组装本轮发给模型的 {@link ModelRequest}：
  * <pre>
- * Runtime Context + Session History = LlmContext
+ * Runtime Context + Session History = ModelRequest
  * </pre>
  */
 @ApplicationScoped
 public class ContextBuilder {
 
-    public LlmContext build(AgentRunContext runContext) {
+    public ModelRequest build(AgentRunContext runContext) {
         return build(runContext.runtime(), runContext.session());
     }
 
-    public LlmContext build(RuntimeContext runtime, AgentSession session) {
+    public ModelRequest build(RuntimeContext runtime, AgentSession session) {
         List<String> systemSections = new ArrayList<>();
         addIfPresent(systemSections, runtime.systemPrompt());
         addIfPresent(systemSections, runtime.agentsMd());
         systemSections.addAll(runtime.hookInjections());
         addIfPresent(systemSections, runtime.environmentInfo());
 
-        return new LlmContext(
+        LlmContext context = new LlmContext(
                 systemSections,
                 runtime.skills(),
                 runtime.tools(),
                 session.messages());
+        return new ModelRequest(context);
     }
 
     private static void addIfPresent(List<String> sections, String value) {

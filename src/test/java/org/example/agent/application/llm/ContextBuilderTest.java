@@ -39,7 +39,7 @@ class ContextBuilderTest {
         AgentSession session = new AgentSession("S001", "U001");
         session.addMessage(new UserMessage("帮我查看当前目录"));
 
-        LlmContext llmContext = builder.build(new AgentRunContext(session, runtime));
+        LlmContext llmContext = builder.build(new AgentRunContext(session, runtime)).context();
 
         assertEquals(4, llmContext.systemSections().size());
         assertEquals("You are a helpful agent.", llmContext.systemSections().get(0));
@@ -63,7 +63,7 @@ class ContextBuilderTest {
 
         AgentSession session = new AgentSession("S001", "U001");
 
-        LlmContext llmContext = builder.build(runtime, session);
+        LlmContext llmContext = builder.build(runtime, session).context();
 
         assertTrue(llmContext.systemSections().isEmpty());
         assertTrue(llmContext.skills().isEmpty());

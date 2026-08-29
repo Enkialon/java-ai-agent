@@ -9,62 +9,79 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class AgentHookServiceTest {
+class HookServiceTest {
 
     @Test
-    void delegatesToAllHooksInOrder() {
+    void lifecycleHooks_delegateInOrder() {
         List<String> calls = new ArrayList<>();
-        AgentHook first = recordingHook("first", calls);
-        AgentHook second = recordingHook("second", calls);
+        AgentLifecycleHookService service = new AgentLifecycleHookService(List.of(
+                recordingLifecycle("first", calls),
+                recordingLifecycle("second", calls)));
 
-        AgentHookService service = new AgentHookService(List.of(first, second));
-        AgentRunContext context = new AgentRunContext(
-                new AgentSession("S001", "U001"),
-                new RuntimeContext());
-        ToolCall toolCall = new ToolCall();
-        ToolResult toolResult = new ToolResult();
-
+        AgentRunContext context = newContext();
         service.beforeAgent(context);
-        service.beforeModel(context);
-        service.afterModel(context);
-        service.beforeTool(context, toolCall);
-        service.afterTool(context, toolCall, toolResult);
         service.afterAgent(context);
 
         assertEquals(List.of(
                 "first:beforeAgent",
                 "second:beforeAgent",
-                "first:beforeModel",
-                "second:beforeModel",
-                "first:afterModel",
-                "second:afterModel",
-                "first:beforeTool",
-                "second:beforeTool",
-                "first:afterTool",
-                "second:afterTool",
                 "first:afterAgent",
                 "second:afterAgent"
         ), calls);
     }
 
     @Test
-    void emptyHooks_isNoOp() {
-        AtomicInteger counter = new AtomicInteger();
-        AgentHookService service = new AgentHookService(List.of());
-        AgentRunContext context = new AgentRunContext(
-                new AgentSession("S001", "U001"),
-                new RuntimeContext());
+    void modelHooks_delegateInOrder() {
+        List<String> calls = new ArrayList<>();
+        ModelHookService service = new ModelHookService(List.of(
+                recordingModel("first", calls),
+                recordingModel("second", calls)));
 
-        service.beforeAgent(context);
-        assertEquals(0, counter.get());
+        AgentRunContext context = newContext();
+        service.beforeModel(context);
+        service.afterModel(context);
+
+        assertEquals(List.of(
+                "first:beforeModel",
+                "second:beforeModel",
+                "first:afterModel",
+                "second:afterModel"
+        ), calls);
     }
 
-    private static AgentHook recordingHook(String name, List<String> calls) {
-        return new AgentHook() {
+    @Test
+    void toolHooks_delegateInOrder() {
+        List<String> calls = new ArrayList<>();
+        ToolHookService service = new ToolHookService(List.of(
+                recordingTool("first", calls),
+                recordingTool("second", calls)));
+
+        AgentRunContext context = newContext();
+        ToolCall toolCall = new ToolCall("call_1", "execute", "{}");
+        ToolResult toolResult = new ToolResult("call_1", "ok");
+
+        service.beforeTool(context, toolCall);
+        service.afterTool(context, toolCall, toolResult);
+
+        assertEquals(List.of(
+                "first:beforeTool",
+                "second:beforeTool",
+                "first:afterTool",
+                "second:afterTool"
+        ), calls);
+    }
+
+    private static AgentRunContext newContext() {
+        return new AgentRunContext(
+                new AgentSession("S001", "U001"),
+                new RuntimeContext());
+    }
+
+    private static AgentLifecycleHook recordingLifecycle(String name, List<String> calls) {
+        return new AgentLifecycleHook() {
             @Override
             public void beforeAgent(AgentRunContext context) {
                 calls.add(name + ":beforeAgent");
@@ -74,7 +91,11 @@ class AgentHookServiceTest {
             public void afterAgent(AgentRunContext context) {
                 calls.add(name + ":afterAgent");
             }
+        };
+    }
 
+    private static ModelHook recordingModel(String name, List<String> calls) {
+        return new ModelHook() {
             @Override
             public void beforeModel(AgentRunContext context) {
                 calls.add(name + ":beforeModel");
@@ -84,7 +105,11 @@ class AgentHookServiceTest {
             public void afterModel(AgentRunContext context) {
                 calls.add(name + ":afterModel");
             }
+        };
+    }
 
+    private static ToolHook recordingTool(String name, List<String> calls) {
+        return new ToolHook() {
             @Override
             public void beforeTool(AgentRunContext context, ToolCall toolCall) {
                 calls.add(name + ":beforeTool");
