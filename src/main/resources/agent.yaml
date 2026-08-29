@@ -1,0 +1,28 @@
+# Agent 运行配置（v1）
+# api-key 支持 ${ENV} / ${ENV:default}；也可留空，运行时回退到环境变量。
+
+agent:
+  model:
+    # 选用 clients 下的实例名
+    active: deepseek
+    clients:
+      stub:
+        type: stub
+
+      deepseek:
+        type: deepseek
+        api-key: ${DEEPSEEK_API_KEY}
+        base-url: https://api.deepseek.com
+        model: deepseek-v4-flash
+
+      openai:
+        type: openai
+        api-key: ${OPENAI_API_KEY:}
+        base-url: https://api.openai.com/v1
+        model: gpt-4o
+
+  # 权限占位（v1 仅加载，尚未强制执行）
+  permissions:
+    bash: allow
+    write: allow
+    network: deny

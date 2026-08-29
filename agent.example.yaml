@@ -1,0 +1,35 @@
+# 部署用示例：复制为 jar 同目录的 agent.yaml（不要把真实密钥提交进仓库）
+#
+# 启动示例：
+#   export DEEPSEEK_API_KEY=sk-xxx
+#   java -jar java-ai-agent.jar
+#
+# 或显式指定配置文件：
+#   java -Dagent.config=/etc/java-ai-agent/agent.yaml -jar java-ai-agent.jar
+#   AGENT_CONFIG=/etc/java-ai-agent/agent.yaml java -jar java-ai-agent.jar
+
+agent:
+  model:
+    active: deepseek
+    clients:
+      stub:
+        type: stub
+
+      deepseek:
+        type: deepseek
+        # 推荐：只写环境变量占位，密钥放环境变量 / K8s Secret / systemd EnvironmentFile
+        api-key: ${DEEPSEEK_API_KEY}
+        base-url: https://api.deepseek.com
+        model: deepseek-v4-flash
+
+      openai:
+        type: openai
+        api-key: ${OPENAI_API_KEY:}
+        base-url: https://api.openai.com/v1
+        model: gpt-4o
+
+  # v1：已加载，尚未在工具层强制执行
+  permissions:
+    bash: allow   # allow | deny | ask（ask 预留）
+    write: allow
+    network: deny

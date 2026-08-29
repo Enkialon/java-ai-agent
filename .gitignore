@@ -41,3 +41,5 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+### Local agent secrets (cwd / next to jar; do not commit) ###
+/agent.yaml

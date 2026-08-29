@@ -14,6 +14,12 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest'
     implementation 'io.smallrye.reactive:mutiny'
 
+    // OpenAI-compatible HTTP/SSE client（DeepSeek / OpenAI）
+    implementation 'com.openai:openai-java:4.54.0'
+
+    // agent.yaml
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
+
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'io.smallrye.reactive:mutiny-test-utils'
