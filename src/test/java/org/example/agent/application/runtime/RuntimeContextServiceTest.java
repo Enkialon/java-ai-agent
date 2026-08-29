@@ -7,7 +7,6 @@ import org.example.agent.domain.session.WorkspaceNotBoundException;
 import org.example.agent.domain.skill.SkillDescriptor;
 import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolResult;
-import org.example.agent.infrastructure.environment.InMemoryEnvironmentRepository;
 import org.example.agent.infrastructure.prompt.InMemoryPromptRepository;
 import org.example.agent.infrastructure.skill.InMemorySkillRepository;
 import org.example.agent.infrastructure.tool.InMemoryToolRepository;
@@ -18,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,7 +30,6 @@ class RuntimeContextServiceTest {
     private InMemoryPromptRepository promptRepository;
     private InMemorySkillRepository skillRepository;
     private InMemoryToolRepository toolRepository;
-    private InMemoryEnvironmentRepository environmentRepository;
     private RuntimeContextService service;
 
     @BeforeEach
@@ -38,12 +37,10 @@ class RuntimeContextServiceTest {
         promptRepository = new InMemoryPromptRepository();
         skillRepository = new InMemorySkillRepository();
         toolRepository = new InMemoryToolRepository();
-        environmentRepository = new InMemoryEnvironmentRepository();
         service = new RuntimeContextService(
                 promptRepository,
                 skillRepository,
                 toolRepository,
-                environmentRepository,
                 new SessionWorkspaceResolver());
     }
 
@@ -63,7 +60,6 @@ class RuntimeContextServiceTest {
         promptRepository.saveAgentsMd("# AGENTS.md");
         skillRepository.save(skill);
         toolRepository.save(tool);
-        environmentRepository.save("os=linux");
 
         AgentSession session = boundSession();
         RuntimeContext context = service.load(session);
@@ -74,9 +70,9 @@ class RuntimeContextServiceTest {
         assertEquals(skill, context.skills().get(0));
         assertEquals(1, context.tools().size());
         assertSame(tool, context.tools().get(0));
-        assertEquals("os=linux", context.environmentInfo());
+        assertNull(context.environmentInfo());
+        assertTrue(context.hookInjections().isEmpty());
         assertEquals(tempDir.toAbsolutePath().normalize(), context.workspace().root());
-        assertTrue(context.hookInjections().stream().anyMatch(s -> s.startsWith("workspace=")));
     }
 
     @Test

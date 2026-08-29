@@ -90,6 +90,9 @@ public class RuntimeContext {
         return this;
     }
 
+    /**
+     * 宿主机 / 执行环境信息；由 ModelHook 在调用前覆盖写入。
+     */
     public String environmentInfo() {
         return environmentInfo;
     }
