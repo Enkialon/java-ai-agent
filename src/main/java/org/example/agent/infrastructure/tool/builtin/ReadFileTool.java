@@ -5,8 +5,8 @@ import jakarta.inject.Inject;
 import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolCall;
 import org.example.agent.domain.tool.ToolResult;
+import org.example.agent.domain.workspace.Workspace;
 import org.example.agent.infrastructure.tool.ToolArguments;
-import org.example.agent.infrastructure.tool.Workspace;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -33,11 +33,8 @@ public class ReadFileTool implements Tool {
             }
             """;
 
-    private final Workspace workspace;
-
     @Inject
-    public ReadFileTool(Workspace workspace) {
-        this.workspace = workspace;
+    public ReadFileTool() {
     }
 
     @Override
@@ -56,7 +53,7 @@ public class ReadFileTool implements Tool {
     }
 
     @Override
-    public ToolResult execute(ToolCall call) {
+    public ToolResult execute(ToolCall call, Workspace workspace) {
         try {
             ToolArguments args = ToolArguments.parse(call.arguments());
             Path path = workspace.resolvePath(args.requireString("path"));

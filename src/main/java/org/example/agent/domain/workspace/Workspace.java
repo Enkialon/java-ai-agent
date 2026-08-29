@@ -1,21 +1,16 @@
-package org.example.agent.infrastructure.tool;
-
-import jakarta.enterprise.context.ApplicationScoped;
+package org.example.agent.domain.workspace;
 
 import java.nio.file.Path;
 import java.util.Objects;
 
 /**
  * Agent 工作区根目录：文件类 Tool 的路径解析与越界校验基准。
+ * <p>
+ * 由 Session 绑定的路径解析而来，按次运行创建。
  */
-@ApplicationScoped
-public class Workspace {
+public final class Workspace {
 
     private final Path root;
-
-    public Workspace() {
-        this(Path.of("").toAbsolutePath().normalize());
-    }
 
     public Workspace(Path root) {
         this.root = Objects.requireNonNull(root, "root must not be null")

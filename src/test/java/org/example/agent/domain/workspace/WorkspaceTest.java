@@ -1,4 +1,4 @@
-package org.example.agent.infrastructure.tool;
+package org.example.agent.domain.workspace;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

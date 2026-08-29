@@ -30,7 +30,7 @@ class ContextBuilderTest {
                 "queryOrder",
                 "查询订单",
                 "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}",
-                call -> ToolResult.ok(call.callId(), ""));
+                (call, workspace) -> ToolResult.ok(call.callId(), ""));
 
         RuntimeContext runtime = new RuntimeContext()
                 .systemPrompt("You are a helpful agent.")

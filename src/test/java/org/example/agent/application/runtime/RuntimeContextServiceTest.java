@@ -1,7 +1,9 @@
 package org.example.agent.application.runtime;
 
 import org.example.agent.application.tool.FunctionalTool;
+import org.example.agent.application.workspace.SessionWorkspaceResolver;
 import org.example.agent.domain.session.AgentSession;
+import org.example.agent.domain.session.WorkspaceNotBoundException;
 import org.example.agent.domain.skill.SkillDescriptor;
 import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolResult;
@@ -11,12 +13,19 @@ import org.example.agent.infrastructure.skill.InMemorySkillRepository;
 import org.example.agent.infrastructure.tool.InMemoryToolRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RuntimeContextServiceTest {
+
+    @TempDir
+    Path tempDir;
 
     private InMemoryPromptRepository promptRepository;
     private InMemorySkillRepository skillRepository;
@@ -34,7 +43,8 @@ class RuntimeContextServiceTest {
                 promptRepository,
                 skillRepository,
                 toolRepository,
-                environmentRepository);
+                environmentRepository,
+                new SessionWorkspaceResolver());
     }
 
     @Test
@@ -47,7 +57,7 @@ class RuntimeContextServiceTest {
                 "queryOrder",
                 "查询订单",
                 "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}",
-                call -> ToolResult.ok(call.callId(), ""));
+                (call, workspace) -> ToolResult.ok(call.callId(), ""));
 
         promptRepository.saveSystemPrompt("You are a helpful agent.");
         promptRepository.saveAgentsMd("# AGENTS.md");
@@ -55,7 +65,8 @@ class RuntimeContextServiceTest {
         toolRepository.save(tool);
         environmentRepository.save("os=linux");
 
-        RuntimeContext context = service.load();
+        AgentSession session = boundSession();
+        RuntimeContext context = service.load(session);
 
         assertEquals("You are a helpful agent.", context.systemPrompt());
         assertEquals("# AGENTS.md", context.agentsMd());
@@ -64,17 +75,32 @@ class RuntimeContextServiceTest {
         assertEquals(1, context.tools().size());
         assertSame(tool, context.tools().get(0));
         assertEquals("os=linux", context.environmentInfo());
-        assertTrue(context.hookInjections().isEmpty());
+        assertEquals(tempDir.toAbsolutePath().normalize(), context.workspace().root());
+        assertTrue(context.hookInjections().stream().anyMatch(s -> s.startsWith("workspace=")));
     }
 
     @Test
     void createRunContext_bindsSessionAndLoadedRuntime() {
         promptRepository.saveSystemPrompt("system");
-        AgentSession session = new AgentSession("S001", "U001");
+        AgentSession session = boundSession();
 
         AgentRunContext runContext = service.createRunContext(session);
 
         assertSame(session, runContext.session());
         assertEquals("system", runContext.runtime().systemPrompt());
+        assertEquals(tempDir.toAbsolutePath().normalize(), runContext.runtime().workspace().root());
+    }
+
+    @Test
+    void createRunContext_requiresBoundWorkspace() {
+        AgentSession session = new AgentSession("S001", "U001");
+
+        assertThrows(WorkspaceNotBoundException.class, () -> service.createRunContext(session));
+    }
+
+    private AgentSession boundSession() {
+        AgentSession session = new AgentSession("S001", "U001");
+        session.bindWorkspace(tempDir.toAbsolutePath().normalize().toString());
+        return session;
     }
 }

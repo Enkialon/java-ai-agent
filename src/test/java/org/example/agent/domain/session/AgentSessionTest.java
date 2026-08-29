@@ -58,4 +58,14 @@ class AgentSessionTest {
         assertEquals("filesystem", session.activeSkill());
         assertEquals(1L, session.version());
     }
+
+    @Test
+    void bindWorkspace_storesPath_andIncrementsVersion() {
+        AgentSession session = new AgentSession("S001", "U001");
+
+        session.bindWorkspace("/tmp/project");
+
+        assertEquals("/tmp/project", session.workspacePath().orElseThrow());
+        assertEquals(1L, session.version());
+    }
 }

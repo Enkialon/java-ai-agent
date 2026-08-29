@@ -21,8 +21,10 @@ import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.session.message.AgentMessage;
 import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolResult;
+import org.example.agent.domain.workspace.Workspace;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -150,7 +152,8 @@ class AgentLoopServiceTest {
     }
 
     private static AgentRunContext newContext(Tool... tools) {
-        RuntimeContext runtime = new RuntimeContext();
+        RuntimeContext runtime = new RuntimeContext()
+                .workspace(new Workspace(Path.of("").toAbsolutePath()));
         for (Tool tool : tools) {
             runtime.addTool(tool);
         }
@@ -162,6 +165,6 @@ class AgentLoopServiceTest {
                 name,
                 name,
                 "{\"type\":\"object\"}",
-                call -> ToolResult.ok(call.callId(), name + "-ok"));
+                (call, workspace) -> ToolResult.ok(call.callId(), name + "-ok"));
     }
 }

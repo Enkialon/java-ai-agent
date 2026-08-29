@@ -67,6 +67,7 @@ class AgentSessionManagerTest {
     void save_andReload_preservesOrderedHistory() {
         AgentSessionManager manager = manager("S001", "U001");
         AgentSession session = manager.getOrCreate();
+        session.bindWorkspace("/tmp/demo");
         session.addMessage(new UserMessage("帮我查看当前目录"));
         session.addMessage(new AssistantMessage("我先查看当前目录"));
         session.addMessage(new ToolCallMessage("call_001", "execute", "{\"command\":\"ls\"}"));
@@ -77,7 +78,8 @@ class AgentSessionManagerTest {
         AgentSession restored = manager.getOrCreate();
 
         assertEquals(5, restored.messages().size());
-        assertEquals(5L, restored.version());
+        assertEquals(6L, restored.version());
+        assertEquals("/tmp/demo", restored.workspacePath().orElseThrow());
         assertTrue(restored.messages().get(0) instanceof UserMessage);
         assertTrue(restored.messages().get(1) instanceof AssistantMessage);
         assertTrue(restored.messages().get(2) instanceof ToolCallMessage);

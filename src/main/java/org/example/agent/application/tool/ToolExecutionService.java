@@ -39,7 +39,7 @@ public class ToolExecutionService {
         hooks.beforeTool(context, toolCall);
         sink.emit(new ToolExecutionStartEvent(toolCall.callId(), toolCall.toolName()));
 
-        ToolResult result = tool.execute(toolCall);
+        ToolResult result = tool.execute(toolCall, context.runtime().workspace());
 
         hooks.afterTool(context, toolCall, result);
         String contentForSession = result.success()

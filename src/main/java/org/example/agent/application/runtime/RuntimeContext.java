@@ -3,6 +3,7 @@ package org.example.agent.application.runtime;
 import org.example.agent.application.llm.ContextBuilder;
 import org.example.agent.domain.skill.SkillDescriptor;
 import org.example.agent.domain.tool.Tool;
+import org.example.agent.domain.workspace.Workspace;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +20,7 @@ public class RuntimeContext {
 
     private String systemPrompt;
     private String agentsMd;
+    private Workspace workspace;
     private final List<SkillDescriptor> skills = new ArrayList<>();
     private final List<Tool> tools = new ArrayList<>();
     private final List<String> hookInjections = new ArrayList<>();
@@ -39,6 +41,15 @@ public class RuntimeContext {
 
     public RuntimeContext agentsMd(String agentsMd) {
         this.agentsMd = agentsMd;
+        return this;
+    }
+
+    public Workspace workspace() {
+        return workspace;
+    }
+
+    public RuntimeContext workspace(Workspace workspace) {
+        this.workspace = Objects.requireNonNull(workspace, "workspace must not be null");
         return this;
     }
 
