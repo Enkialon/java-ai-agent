@@ -17,6 +17,6 @@ agent:
   # 工具权限：allow | deny | ask（ask 时 SSE 推送审批事件，需 POST approve/deny）
   # bash → bash 工具；write → write/edit 工具；network 预留
   permissions:
-    bash: allow
-    write: allow
+    bash: ask
+    write: ask
     network: deny

@@ -225,7 +225,11 @@
       throw new Error("无法建立事件流");
     }
 
-    await readSse(res.body, (event) => handleEvent(event));
+    try {
+      await readSse(res.body, (event) => handleEvent(event));
+    } catch (err) {
+      throw new Error("事件流中断：" + (err.message || String(err)));
+    }
   }
 
   async function readSse(body, onEvent) {

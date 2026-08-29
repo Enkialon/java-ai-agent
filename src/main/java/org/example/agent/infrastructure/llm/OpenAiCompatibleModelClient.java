@@ -3,24 +3,27 @@ package org.example.agent.infrastructure.llm;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.http.StreamResponse;
-import com.openai.helpers.ChatCompletionAccumulator;
-import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionChunk;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import com.openai.models.chat.completions.ChatCompletionMessage;
-import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
 import org.example.agent.application.llm.ModelClient;
 import org.example.agent.application.llm.ModelEvent;
 import org.example.agent.application.llm.ModelEventSink;
 import org.example.agent.application.llm.ModelRequest;
 import org.example.agent.infrastructure.config.AgentConfig;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
 
 /**
  * 基于 openai-java SDK 的 OpenAI-compatible Chat Completions 客户端。
  * <p>
  * DeepSeek / OpenAI 共用此实现，差异仅在 baseUrl / model / apiKey。
+ * <p>
+ * 不使用 {@code ChatCompletionAccumulator}：DeepSeek 等兼容接口常在最终 chunk
+ * 只带 {@code usage}、不带 {@code choices}，累加器会抛
+ * {@code IllegalStateException: choices is required}。
  */
 public final class OpenAiCompatibleModelClient implements ModelClient {
 
@@ -45,46 +48,67 @@ public final class OpenAiCompatibleModelClient implements ModelClient {
     @Override
     public void stream(ModelRequest request, ModelEventSink sink) {
         ChatCompletionCreateParams params = mapper.toCreateParams(request.context(), model);
-        ChatCompletionAccumulator accumulator = ChatCompletionAccumulator.create();
+        TreeMap<Long, PendingToolCall> pendingToolCalls = new TreeMap<>();
 
         try (StreamResponse<ChatCompletionChunk> streamResponse =
                      client.chat().completions().createStreaming(params)) {
-            streamResponse.stream().forEach(chunk -> {
-                accumulator.accumulate(chunk);
-                emitTextDeltas(chunk, sink);
-            });
+            streamResponse.stream().forEach(chunk -> handleChunk(chunk, sink, pendingToolCalls));
         }
 
-        emitToolCalls(accumulator.chatCompletion(), sink);
-    }
-
-    private static void emitTextDeltas(ChatCompletionChunk chunk, ModelEventSink sink) {
-        for (ChatCompletionChunk.Choice choice : chunk.choices()) {
-            choice.delta().content().ifPresent(delta -> {
-                if (!delta.isEmpty()) {
-                    sink.emit(new ModelEvent.TextDelta(delta));
-                }
-            });
-        }
-    }
-
-    private static void emitToolCalls(ChatCompletion completion, ModelEventSink sink) {
-        if (completion.choices().isEmpty()) {
-            return;
-        }
-        ChatCompletionMessage message = completion.choices().getFirst().message();
-        message.toolCalls().ifPresent(toolCalls -> {
-            for (ChatCompletionMessageToolCall toolCall : toolCalls) {
-                if (!toolCall.isFunction()) {
-                    continue;
-                }
-                var functionCall = toolCall.asFunction();
-                sink.emit(new ModelEvent.ToolCall(
-                        functionCall.id(),
-                        functionCall.function().name(),
-                        functionCall.function().arguments()));
+        for (PendingToolCall pending : pendingToolCalls.values()) {
+            if (pending.id == null || pending.name == null) {
+                continue;
             }
+            sink.emit(new ModelEvent.ToolCall(
+                    pending.id,
+                    pending.name,
+                    pending.arguments.toString()));
+        }
+    }
+
+    private static void handleChunk(
+            ChatCompletionChunk chunk,
+            ModelEventSink sink,
+            TreeMap<Long, PendingToolCall> pendingToolCalls) {
+        for (ChatCompletionChunk.Choice choice : safeChoices(chunk)) {
+            ChatCompletionChunk.Choice.Delta delta = choice.delta();
+            delta.content().ifPresent(content -> {
+                if (!content.isEmpty()) {
+                    sink.emit(new ModelEvent.TextDelta(content));
+                }
+            });
+            delta.toolCalls().ifPresent(toolCalls -> {
+                for (ChatCompletionChunk.Choice.Delta.ToolCall toolCall : toolCalls) {
+                    mergeToolCall(pendingToolCalls, toolCall);
+                }
+            });
+        }
+    }
+
+    /**
+     * usage-only 等末包可能缺少 choices；用安全读取避免 SDK getRequired 抛错。
+     */
+    static List<ChatCompletionChunk.Choice> safeChoices(ChatCompletionChunk chunk) {
+        return chunk._choices().asKnown().orElse(List.of());
+    }
+
+    static void mergeToolCall(
+            TreeMap<Long, PendingToolCall> pendingToolCalls,
+            ChatCompletionChunk.Choice.Delta.ToolCall toolCall) {
+        PendingToolCall pending = pendingToolCalls.computeIfAbsent(
+                toolCall.index(),
+                ignored -> new PendingToolCall());
+        toolCall.id().ifPresent(id -> pending.id = id);
+        toolCall.function().ifPresent(function -> {
+            function.name().ifPresent(name -> pending.name = name);
+            function.arguments().ifPresent(args -> pending.arguments.append(args));
         });
+    }
+
+    static final class PendingToolCall {
+        String id;
+        String name;
+        final StringBuilder arguments = new StringBuilder();
     }
 
     private static OpenAIClient buildClient(AgentConfig.ModelClientSettings settings) {
@@ -97,19 +121,19 @@ public final class OpenAiCompatibleModelClient implements ModelClient {
         return builder.build();
     }
 
-    private static java.util.Optional<String> fallbackApiKey(String type) {
+    private static Optional<String> fallbackApiKey(String type) {
         return switch (type) {
             case "deepseek" -> env("DEEPSEEK_API_KEY");
             case "openai" -> env("OPENAI_API_KEY");
-            default -> java.util.Optional.empty();
+            default -> Optional.empty();
         };
     }
 
-    private static java.util.Optional<String> env(String name) {
+    private static Optional<String> env(String name) {
         String value = System.getenv(name);
         if (value == null || value.isBlank()) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
-        return java.util.Optional.of(value.trim());
+        return Optional.of(value.trim());
     }
 }
