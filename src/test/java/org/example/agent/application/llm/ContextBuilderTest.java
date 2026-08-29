@@ -2,10 +2,13 @@ package org.example.agent.application.llm;
 
 import org.example.agent.application.runtime.AgentRunContext;
 import org.example.agent.application.runtime.RuntimeContext;
+import org.example.agent.application.tool.FunctionalTool;
 import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.session.message.AgentMessage.UserMessage;
 import org.example.agent.domain.skill.SkillDescriptor;
-import org.example.agent.domain.tool.ToolDefinition;
+import org.example.agent.domain.tool.Tool;
+import org.example.agent.domain.tool.ToolResult;
+import org.example.agent.domain.tool.ToolSpec;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,10 +26,11 @@ class ContextBuilderTest {
                 "wechat-chat",
                 "查询微信聊天记录",
                 ".agents/skills/wechat-chat/SKILL.md");
-        ToolDefinition tool = new ToolDefinition(
+        Tool tool = new FunctionalTool(
                 "queryOrder",
                 "查询订单",
-                "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}");
+                "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}",
+                call -> new ToolResult(call.callId(), ""));
 
         RuntimeContext runtime = new RuntimeContext()
                 .systemPrompt("You are a helpful agent.")
@@ -48,7 +52,13 @@ class ContextBuilderTest {
         assertEquals("os=linux", llmContext.systemSections().get(3));
 
         assertEquals(List.of(skill), llmContext.skills());
-        assertEquals(List.of(tool), llmContext.tools());
+        assertEquals(List.of(tool.spec()), llmContext.tools());
+        assertEquals(
+                new ToolSpec(
+                        "queryOrder",
+                        "查询订单",
+                        "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}"),
+                llmContext.tools().get(0));
 
         assertEquals(1, llmContext.history().size());
         assertTrue(llmContext.history().get(0) instanceof UserMessage);

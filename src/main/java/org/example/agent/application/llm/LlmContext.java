@@ -2,7 +2,7 @@ package org.example.agent.application.llm;
 
 import org.example.agent.domain.session.message.AgentMessage;
 import org.example.agent.domain.skill.SkillDescriptor;
-import org.example.agent.domain.tool.ToolDefinition;
+import org.example.agent.domain.tool.ToolSpec;
 
 import java.util.List;
 
@@ -16,7 +16,7 @@ import java.util.List;
 public record LlmContext(
         List<String> systemSections,
         List<SkillDescriptor> skills,
-        List<ToolDefinition> tools,
+        List<ToolSpec> tools,
         List<AgentMessage> history
 ) {
 

@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.example.agent.application.runtime.AgentRunContext;
 import org.example.agent.application.runtime.RuntimeContext;
 import org.example.agent.domain.session.AgentSession;
+import org.example.agent.domain.tool.Tool;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +32,7 @@ public class ContextBuilder {
         LlmContext context = new LlmContext(
                 systemSections,
                 runtime.skills(),
-                runtime.tools(),
+                runtime.tools().stream().map(Tool::spec).toList(),
                 session.messages());
         return new ModelRequest(context);
     }

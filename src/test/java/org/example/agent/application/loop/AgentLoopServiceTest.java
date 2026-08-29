@@ -15,10 +15,11 @@ import org.example.agent.application.llm.ModelClient;
 import org.example.agent.application.llm.ModelEvent;
 import org.example.agent.application.runtime.AgentRunContext;
 import org.example.agent.application.runtime.RuntimeContext;
+import org.example.agent.application.tool.FunctionalTool;
 import org.example.agent.application.tool.ToolExecutionService;
-import org.example.agent.application.tool.ToolExecutor;
 import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.session.message.AgentMessage;
+import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolResult;
 import org.junit.jupiter.api.Test;
 
@@ -81,12 +82,12 @@ class AgentLoopServiceTest {
             sink.emit(new ModelEvent.TextDelta("完成"));
         };
 
-        ToolExecutor toolExecutor = toolCall ->
-                new ToolResult(toolCall.callId(), toolCall.toolName() + "-ok");
+        Tool queryOrder = echoTool("queryOrder");
+        Tool queryUser = echoTool("queryUser");
 
-        AgentRunContext context = newContext();
+        AgentRunContext context = newContext(queryOrder, queryUser);
         List<AgentEvent> events = new ArrayList<>();
-        newLoopService(modelClient, toolExecutor).run(context, events::add);
+        newLoopService(modelClient).run(context, events::add);
 
         List<AgentMessage> messages = context.session().messages();
         assertEquals(6, messages.size());
@@ -101,6 +102,8 @@ class AgentLoopServiceTest {
         assertEquals("call_2", ((AgentMessage.ToolCallMessage) messages.get(2)).callId());
         assertEquals("call_1", ((AgentMessage.ToolResultMessage) messages.get(3)).callId());
         assertEquals("call_2", ((AgentMessage.ToolResultMessage) messages.get(4)).callId());
+        assertEquals("queryOrder-ok", ((AgentMessage.ToolResultMessage) messages.get(3)).result());
+        assertEquals("queryUser-ok", ((AgentMessage.ToolResultMessage) messages.get(4)).result());
 
         assertInstanceOf(AgentStartEvent.class, events.get(0));
         assertEquals(new TextDeltaEvent("查询中"), events.get(1));
@@ -132,8 +135,7 @@ class AgentLoopServiceTest {
 
         AgentLoopService loopService = new AgentLoopService(
                 new ModelTurnService(modelHooks, new ContextBuilder(), modelClient),
-                new ToolExecutionService(new ToolHookService(List.of()), toolCall ->
-                        new ToolResult(toolCall.callId(), "")));
+                new ToolExecutionService(new ToolHookService(List.of())));
 
         loopService.run(newContext(), event -> {
         });
@@ -142,20 +144,24 @@ class AgentLoopServiceTest {
     }
 
     private static AgentLoopService newLoopService(ModelClient modelClient) {
-        return newLoopService(modelClient, toolCall -> new ToolResult(toolCall.callId(), ""));
-    }
-
-    private static AgentLoopService newLoopService(
-            ModelClient modelClient,
-            ToolExecutor toolExecutor) {
         return new AgentLoopService(
                 new ModelTurnService(new ModelHookService(List.of()), new ContextBuilder(), modelClient),
-                new ToolExecutionService(new ToolHookService(List.of()), toolExecutor));
+                new ToolExecutionService(new ToolHookService(List.of())));
     }
 
-    private static AgentRunContext newContext() {
-        return new AgentRunContext(
-                new AgentSession("S001", "U001"),
-                new RuntimeContext());
+    private static AgentRunContext newContext(Tool... tools) {
+        RuntimeContext runtime = new RuntimeContext();
+        for (Tool tool : tools) {
+            runtime.addTool(tool);
+        }
+        return new AgentRunContext(new AgentSession("S001", "U001"), runtime);
+    }
+
+    private static Tool echoTool(String name) {
+        return new FunctionalTool(
+                name,
+                name,
+                "{\"type\":\"object\"}",
+                call -> new ToolResult(call.callId(), name + "-ok"));
     }
 }

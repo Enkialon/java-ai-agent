@@ -1,8 +1,10 @@
 package org.example.agent.application.runtime;
 
+import org.example.agent.application.tool.FunctionalTool;
 import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.skill.SkillDescriptor;
-import org.example.agent.domain.tool.ToolDefinition;
+import org.example.agent.domain.tool.Tool;
+import org.example.agent.domain.tool.ToolResult;
 import org.example.agent.infrastructure.environment.InMemoryEnvironmentRepository;
 import org.example.agent.infrastructure.prompt.InMemoryPromptRepository;
 import org.example.agent.infrastructure.skill.InMemorySkillRepository;
@@ -41,10 +43,11 @@ class RuntimeContextServiceTest {
                 "wechat-chat",
                 "查询微信聊天记录",
                 ".agents/skills/wechat-chat/SKILL.md");
-        ToolDefinition tool = new ToolDefinition(
+        Tool tool = new FunctionalTool(
                 "queryOrder",
                 "查询订单",
-                "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}");
+                "{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}",
+                call -> new ToolResult(call.callId(), ""));
 
         promptRepository.saveSystemPrompt("You are a helpful agent.");
         promptRepository.saveAgentsMd("# AGENTS.md");
@@ -59,7 +62,7 @@ class RuntimeContextServiceTest {
         assertEquals(1, context.skills().size());
         assertEquals(skill, context.skills().get(0));
         assertEquals(1, context.tools().size());
-        assertEquals(tool, context.tools().get(0));
+        assertSame(tool, context.tools().get(0));
         assertEquals("os=linux", context.environmentInfo());
         assertTrue(context.hookInjections().isEmpty());
     }

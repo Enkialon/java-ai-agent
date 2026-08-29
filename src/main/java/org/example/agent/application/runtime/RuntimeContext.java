@@ -2,12 +2,13 @@ package org.example.agent.application.runtime;
 
 import org.example.agent.application.llm.ContextBuilder;
 import org.example.agent.domain.skill.SkillDescriptor;
-import org.example.agent.domain.tool.ToolDefinition;
+import org.example.agent.domain.tool.Tool;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * 本轮 Runtime / System Context。
@@ -19,7 +20,7 @@ public class RuntimeContext {
     private String systemPrompt;
     private String agentsMd;
     private final List<SkillDescriptor> skills = new ArrayList<>();
-    private final List<ToolDefinition> tools = new ArrayList<>();
+    private final List<Tool> tools = new ArrayList<>();
     private final List<String> hookInjections = new ArrayList<>();
     private String environmentInfo;
 
@@ -50,13 +51,20 @@ public class RuntimeContext {
         return this;
     }
 
-    public List<ToolDefinition> tools() {
+    public List<Tool> tools() {
         return Collections.unmodifiableList(tools);
     }
 
-    public RuntimeContext addTool(ToolDefinition tool) {
+    public RuntimeContext addTool(Tool tool) {
         tools.add(Objects.requireNonNull(tool, "tool must not be null"));
         return this;
+    }
+
+    public Optional<Tool> findTool(String name) {
+        Objects.requireNonNull(name, "name must not be null");
+        return tools.stream()
+                .filter(tool -> tool.name().equals(name))
+                .findFirst();
     }
 
     public List<String> hookInjections() {

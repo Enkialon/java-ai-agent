@@ -1,7 +1,7 @@
 package org.example.agent.infrastructure.tool;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import org.example.agent.domain.tool.ToolDefinition;
+import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolRepository;
 
 import java.util.List;
@@ -13,14 +13,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @ApplicationScoped
 public class InMemoryToolRepository implements ToolRepository {
 
-    private final List<ToolDefinition> tools = new CopyOnWriteArrayList<>();
+    private final List<Tool> tools = new CopyOnWriteArrayList<>();
 
     @Override
-    public List<ToolDefinition> findAll() {
+    public List<Tool> findAll() {
         return List.copyOf(tools);
     }
 
-    public void save(ToolDefinition tool) {
+    public void save(Tool tool) {
         tools.add(tool);
     }
 
