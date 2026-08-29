@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = "coding-agent.sessions";
   const USER_KEY = "coding-agent.userId";
+  const DEFAULT_SESSION_TITLE = "新会话";
 
   const els = {
     timeline: document.getElementById("timeline"),
@@ -12,9 +13,14 @@
     sessionList: document.getElementById("sessionList"),
     sessionLabel: document.getElementById("sessionLabel"),
     modelLabel: document.getElementById("modelLabel"),
-    workspaceInput: document.getElementById("workspaceInput"),
-    bindWorkspaceBtn: document.getElementById("bindWorkspaceBtn"),
+    workspacePathBtn: document.getElementById("workspacePathBtn"),
+    pickWorkspaceBtn: document.getElementById("pickWorkspaceBtn"),
     newSessionBtn: document.getElementById("newSessionBtn"),
+    dirPicker: document.getElementById("dirPicker"),
+    dirCurrentPath: document.getElementById("dirCurrentPath"),
+    dirEntryList: document.getElementById("dirEntryList"),
+    dirUpBtn: document.getElementById("dirUpBtn"),
+    dirConfirmBtn: document.getElementById("dirConfirmBtn"),
   };
 
   /** @type {{id:string,title:string,createdAt:number}[]} */
@@ -24,9 +30,16 @@
   localStorage.setItem(USER_KEY, userId);
 
   if (!sessions.find((s) => s.id === currentSessionId)) {
-    sessions.unshift({ id: currentSessionId, title: "Session", createdAt: Date.now() });
+    sessions.unshift({ id: currentSessionId, title: DEFAULT_SESSION_TITLE, createdAt: Date.now() });
     saveSessions();
   }
+
+  /** @type {string|null} */
+  let currentWorkspace = null;
+  /** @type {string|null} */
+  let pickerPath = null;
+  /** @type {string|null} */
+  let pickerParent = null;
 
   let running = false;
   /** @type {HTMLElement|null} */
@@ -37,11 +50,20 @@
 
   ensureSession();
   renderSessionList();
+  setWorkspaceDisplay(null);
   refreshStatus();
 
   els.sendBtn.addEventListener("click", () => void sendPrompt());
   els.newSessionBtn.addEventListener("click", () => newSession());
-  els.bindWorkspaceBtn.addEventListener("click", () => void bindWorkspace());
+  els.pickWorkspaceBtn.addEventListener("click", () => void openDirPicker());
+  els.workspacePathBtn.addEventListener("click", () => void openDirPicker());
+  els.dirUpBtn.addEventListener("click", () => {
+    if (pickerParent) void loadDir(pickerParent);
+  });
+  els.dirConfirmBtn.addEventListener("click", () => void confirmDir());
+  els.dirPicker.querySelectorAll("[data-close]").forEach((el) => {
+    el.addEventListener("click", () => closeDirPicker());
+  });
   els.promptInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -57,6 +79,19 @@
     };
   }
 
+  function setWorkspaceDisplay(path) {
+    currentWorkspace = path || null;
+    if (path) {
+      els.workspacePathBtn.textContent = path;
+      els.workspacePathBtn.classList.remove("empty");
+      els.workspacePathBtn.title = path;
+    } else {
+      els.workspacePathBtn.textContent = "未选择目录";
+      els.workspacePathBtn.classList.add("empty");
+      els.workspacePathBtn.title = "点击选择本机目录";
+    }
+  }
+
   async function refreshStatus() {
     try {
       const res = await fetch("/api/agent/status", { headers: authHeaders() });
@@ -64,43 +99,90 @@
       const data = await res.json();
       els.modelLabel.textContent = data.model || data.modelClient || "—";
       els.sessionLabel.textContent = shortId(currentSessionId);
-      if (data.workspace) {
-        els.workspaceInput.value = data.workspace;
-      }
+      setWorkspaceDisplay(data.workspace || null);
     } catch {
       /* ignore */
     }
   }
 
-  async function bindWorkspace() {
-    const path = els.workspaceInput.value.trim();
-    if (!path) return;
-    const res = await fetch("/api/agent/session/workspace", {
-      method: "PUT",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ path }),
-    });
+  async function openDirPicker() {
+    els.dirPicker.classList.remove("hidden");
+    els.dirPicker.setAttribute("aria-hidden", "false");
+    await loadDir(currentWorkspace || "");
+  }
+
+  function closeDirPicker() {
+    els.dirPicker.classList.add("hidden");
+    els.dirPicker.setAttribute("aria-hidden", "true");
+  }
+
+  async function loadDir(path) {
+    const url = path
+      ? "/api/agent/filesystem?path=" + encodeURIComponent(path)
+      : "/api/agent/filesystem";
+    const res = await fetch(url, { headers: authHeaders() });
     if (!res.ok) {
-      setStatus("Bind workspace failed: " + (await res.text()), "error");
+      setStatus("无法浏览目录：" + (await res.text()), "error");
       return;
     }
     const data = await res.json();
-    els.workspaceInput.value = data.path;
-    setStatus("Workspace bound", "done");
+    pickerPath = data.path;
+    pickerParent = data.parent || null;
+    els.dirCurrentPath.textContent = data.path;
+    els.dirUpBtn.disabled = !pickerParent;
+
+    els.dirEntryList.innerHTML = "";
+    if (!data.entries || data.entries.length === 0) {
+      const empty = document.createElement("li");
+      empty.textContent = "（无子目录）";
+      empty.style.cursor = "default";
+      empty.style.color = "var(--muted)";
+      empty.addEventListener("click", (e) => e.stopPropagation());
+      els.dirEntryList.appendChild(empty);
+      return;
+    }
+    for (const entry of data.entries) {
+      const li = document.createElement("li");
+      li.textContent = entry.name;
+      li.title = entry.path;
+      li.addEventListener("click", () => void loadDir(entry.path));
+      li.addEventListener("dblclick", () => void loadDir(entry.path));
+      els.dirEntryList.appendChild(li);
+    }
+  }
+
+  async function confirmDir() {
+    if (!pickerPath) return;
+    const res = await fetch("/api/agent/session/workspace", {
+      method: "PUT",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ path: pickerPath }),
+    });
+    if (!res.ok) {
+      setStatus("绑定工作区失败：" + (await res.text()), "error");
+      return;
+    }
+    const data = await res.json();
+    setWorkspaceDisplay(data.path);
+    closeDirPicker();
+    setStatus("已绑定工作区到当前会话", "done");
   }
 
   async function sendPrompt() {
     const message = els.promptInput.value.trim();
     if (!message || running) return;
 
-    if (!sessions.find((s) => s.id === currentSessionId)?.title
-        || sessions.find((s) => s.id === currentSessionId)?.title === "Session") {
-      const s = sessions.find((x) => x.id === currentSessionId);
-      if (s) {
-        s.title = message.slice(0, 48);
-        saveSessions();
-        renderSessionList();
-      }
+    if (!currentWorkspace) {
+      setStatus("请先为当前会话选择工作目录", "error");
+      void openDirPicker();
+      return;
+    }
+
+    const session = sessions.find((s) => s.id === currentSessionId);
+    if (session && (!session.title || session.title === DEFAULT_SESSION_TITLE)) {
+      session.title = message.slice(0, 48);
+      saveSessions();
+      renderSessionList();
     }
 
     running = true;
@@ -111,11 +193,11 @@
     currentTextRaw = "";
 
     appendTask(message);
-    setStatus("Working…", "running");
+    setStatus("执行中…", "running");
 
     try {
       await runAgent(message);
-      setStatus("Done", "done");
+      setStatus("已完成", "done");
     } catch (err) {
       setStatus(err.message || String(err), "error");
       appendSystemError(err.message || String(err));
@@ -137,10 +219,10 @@
     });
 
     if (!res.ok) {
-      throw new Error("Chat failed: HTTP " + res.status);
+      throw new Error("请求失败：HTTP " + res.status);
     }
     if (!res.body) {
-      throw new Error("No response body (SSE unsupported)");
+      throw new Error("无法建立事件流");
     }
 
     await readSse(res.body, (event) => handleEvent(event));
@@ -179,7 +261,7 @@
   function handleEvent(ev) {
     switch (ev.type) {
       case "agent_start":
-        setStatus("Working…", "running");
+        setStatus("执行中…", "running");
         break;
       case "text_delta":
         handleTextDelta(ev.delta || "");
@@ -201,7 +283,7 @@
         break;
       case "agent_end":
         finalizeText();
-        setStatus("Done", "done");
+        setStatus("已完成", "done");
         break;
       default:
         console.debug("Unknown event", ev);
@@ -243,20 +325,20 @@
       banner.className = "approval-banner";
       card.appendChild(banner);
     }
-    banner.textContent = `Approval required (${ev.permission})`;
+    banner.textContent = `需要审批（${ev.permission}）`;
 
     let actions = card.querySelector(".approval-actions");
     if (!actions) {
       actions = document.createElement("div");
       actions.className = "tool-actions approval-actions";
       actions.innerHTML = `
-        <button type="button" class="btn approve">Approve</button>
-        <button type="button" class="btn deny">Deny</button>`;
+        <button type="button" class="btn approve">批准</button>
+        <button type="button" class="btn deny">拒绝</button>`;
       card.appendChild(actions);
       actions.querySelector(".approve").addEventListener("click", () => void decide(ev.callId, true));
       actions.querySelector(".deny").addEventListener("click", () => void decide(ev.callId, false));
     }
-    setStatus("Waiting for approval…", "running");
+    setStatus("等待审批…", "running");
     scrollToBottom();
   }
 
@@ -268,7 +350,7 @@
     if (actions) actions.remove();
     const banner = card.querySelector(".approval-banner");
     if (banner) {
-      banner.textContent = ev.approved ? "Approved" : "Denied";
+      banner.textContent = ev.approved ? "已批准" : "已拒绝";
       banner.style.color = ev.approved ? "var(--success)" : "var(--danger)";
     }
     if (!ev.approved) {
@@ -309,7 +391,7 @@
       headers: authHeaders({ "Content-Type": "application/json" }),
     });
     if (!res.ok) {
-      setStatus("Approval failed: " + (await res.text()), "error");
+      setStatus("审批失败：" + (await res.text()), "error");
     }
   }
 
@@ -384,7 +466,7 @@
       if (full.length > 4000) {
         addToggle(actions, body, () => {
           pre.textContent = full;
-        }, "Expand output");
+        }, "展开全部输出");
       }
       return;
     }
@@ -395,14 +477,14 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn linkish";
-      btn.textContent = "View Diff";
+      btn.textContent = "查看 Diff";
       btn.addEventListener("click", () => {
         body.classList.toggle("open");
         if (!body.dataset.ready) {
           body.innerHTML = `<div class="diff-box">${renderDiff(args.path || "file", args.old_string, args.new_string)}</div>`;
           body.dataset.ready = "1";
         }
-        btn.textContent = body.classList.contains("open") ? "Hide Diff" : "View Diff";
+        btn.textContent = body.classList.contains("open") ? "收起 Diff" : "查看 Diff";
       });
       actions.appendChild(btn);
       return;
@@ -416,10 +498,10 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn linkish";
-      btn.textContent = "Expand";
+      btn.textContent = "展开";
       btn.addEventListener("click", () => {
         body.classList.toggle("open");
-        btn.textContent = body.classList.contains("open") ? "Collapse" : "Expand";
+        btn.textContent = body.classList.contains("open") ? "收起" : "展开";
       });
       actions.appendChild(btn);
     }
@@ -470,7 +552,7 @@
   function appendTask(message) {
     const el = document.createElement("div");
     el.className = "item-task";
-    el.innerHTML = `<div class="label">Task</div><div class="body"></div>`;
+    el.innerHTML = `<div class="label">任务</div><div class="body"></div>`;
     el.querySelector(".body").textContent = message;
     els.timeline.appendChild(el);
     scrollToBottom();
@@ -507,14 +589,15 @@
   function newSession() {
     if (running) return;
     currentSessionId = createSessionId();
-    sessions.unshift({ id: currentSessionId, title: "Session", createdAt: Date.now() });
+    sessions.unshift({ id: currentSessionId, title: DEFAULT_SESSION_TITLE, createdAt: Date.now() });
     saveSessions();
     els.timeline.innerHTML = "";
     toolCards.clear();
     currentTextEl = null;
+    setWorkspaceDisplay(null);
     renderSessionList();
     refreshStatus();
-    setStatus("Ready", "idle");
+    setStatus("就绪", "idle");
   }
 
   function switchSession(id) {
@@ -523,9 +606,10 @@
     els.timeline.innerHTML = "";
     toolCards.clear();
     currentTextEl = null;
+    setWorkspaceDisplay(null);
     renderSessionList();
     refreshStatus();
-    setStatus("Ready (history not loaded)", "idle");
+    setStatus("就绪（历史时间线暂未加载）", "idle");
   }
 
   function renderSessionList() {
@@ -583,7 +667,7 @@
 
   function truncate(text, max) {
     if (text.length <= max) return text;
-    return text.slice(0, max) + "\n…[truncated]";
+    return text.slice(0, max) + "\n…[已截断]";
   }
 
   function escapeHtml(s) {

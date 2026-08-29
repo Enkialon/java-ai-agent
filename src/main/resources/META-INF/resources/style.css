@@ -72,13 +72,127 @@ html, body {
   min-width: 0;
 }
 
-.workspace-field input {
-  width: min(360px, 40vw);
+.workspace-path {
+  max-width: min(420px, 42vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 6px 8px;
+  padding: 6px 10px;
   font-family: var(--mono);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-path.empty {
+  color: var(--muted);
+}
+
+.workspace-path:hover {
+  border-color: var(--accent-dim);
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal-panel {
+  position: relative;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  z-index: 1;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.modal-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.modal-path code {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dir-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow: auto;
+  flex: 1;
+  min-height: 200px;
+}
+
+.dir-list li {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.dir-list li:hover,
+.dir-list li.active {
+  background: var(--bg);
+}
+
+.dir-list li::before {
+  content: "📁 ";
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-hint {
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -382,7 +496,7 @@ html, body {
 }
 
 .composer textarea:focus,
-.workspace-field input:focus {
+.workspace-path:focus {
   outline: 1px solid var(--accent-dim);
 }
 

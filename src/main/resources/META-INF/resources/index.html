@@ -3,34 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Coding Agent</title>
+  <title>编码助手</title>
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="brand">Coding Agent</div>
+      <div class="brand">编码助手</div>
       <div class="meta">
-        <label class="workspace-field">
-          <span>Workspace</span>
-          <input id="workspaceInput" type="text" placeholder="/path/to/project" spellcheck="false" />
-          <button type="button" id="bindWorkspaceBtn" class="btn ghost">Bind</button>
-        </label>
-        <div class="meta-item">Model: <strong id="modelLabel">—</strong></div>
-        <div class="meta-item">Session: <code id="sessionLabel">—</code></div>
+        <div class="workspace-field">
+          <span>工作区</span>
+          <button type="button" id="workspacePathBtn" class="workspace-path" title="点击选择本机目录">
+            未选择目录
+          </button>
+          <button type="button" id="pickWorkspaceBtn" class="btn ghost">选择目录</button>
+        </div>
+        <div class="meta-item">模型：<strong id="modelLabel">—</strong></div>
+        <div class="meta-item">会话：<code id="sessionLabel">—</code></div>
       </div>
-      <button type="button" id="newSessionBtn" class="btn ghost">New Session</button>
+      <button type="button" id="newSessionBtn" class="btn ghost">新建会话</button>
     </header>
 
     <main class="main">
       <aside class="sidebar">
-        <div class="sidebar-title">Sessions</div>
+        <div class="sidebar-title">会话</div>
         <ul id="sessionList" class="session-list"></ul>
       </aside>
 
       <section class="timeline-pane">
-        <div id="statusBar" class="status-bar idle">Ready</div>
+        <div id="statusBar" class="status-bar idle">就绪</div>
         <div id="timeline" class="timeline"></div>
       </section>
     </main>
@@ -39,11 +41,30 @@
       <textarea
         id="promptInput"
         rows="3"
-        placeholder="Tell agent what to do… (Enter 发送, Shift+Enter 换行)"
+        placeholder="告诉助手要做什么…（Enter 发送，Shift+Enter 换行）"
         spellcheck="false"
       ></textarea>
-      <button type="button" id="sendBtn" class="btn primary">Send</button>
+      <button type="button" id="sendBtn" class="btn primary">发送</button>
     </footer>
+  </div>
+
+  <div id="dirPicker" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel" role="dialog" aria-labelledby="dirPickerTitle">
+      <div class="modal-header">
+        <h2 id="dirPickerTitle">选择本机工作目录</h2>
+        <button type="button" class="btn ghost" data-close="1">关闭</button>
+      </div>
+      <div class="modal-path">
+        <button type="button" id="dirUpBtn" class="btn ghost" title="上级目录">↑</button>
+        <code id="dirCurrentPath"></code>
+      </div>
+      <ul id="dirEntryList" class="dir-list"></ul>
+      <div class="modal-footer">
+        <span class="modal-hint">目录保存在当前会话中，工具将在该目录下执行</span>
+        <button type="button" id="dirConfirmBtn" class="btn primary">选择此目录</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
