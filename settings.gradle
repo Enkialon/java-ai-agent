@@ -1,19 +1,15 @@
 
 pluginManagement {
     repositories {
-        // Gradle 插件国内镜像
-        maven {
-            url = uri("https://maven.aliyun.com/repository/gradle-plugin")
-        }
-
-        // Maven 公共仓库
+        // 公共仓库优先：Quarkus 插件的传递依赖不在 gradle-plugin 仓库里
         maven {
             url = uri("https://maven.aliyun.com/repository/public")
         }
-
-        // 建议最后保底
-        gradlePluginPortal()
         mavenCentral()
+        maven {
+            url = uri("https://maven.aliyun.com/repository/gradle-plugin")
+        }
+        gradlePluginPortal()
     }
 }
 
@@ -21,22 +17,17 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
 
     repositories {
+        // Central 优先，避免镜像 POM 命中但 jar 未同步时 Gradle 不再回退
+        mavenCentral()
         maven {
             url = uri("https://maven.aliyun.com/repository/public")
         }
-
-        // 如果项目可能用 Spring
         maven {
             url = uri("https://maven.aliyun.com/repository/spring")
         }
-
-        // Android / Google 依赖才需要
         maven {
             url = uri("https://maven.aliyun.com/repository/google")
         }
-
-        // 保底
-        mavenCentral()
     }
 }
 rootProject.name = 'java-ai-agent'

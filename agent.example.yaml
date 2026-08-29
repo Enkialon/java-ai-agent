@@ -1,12 +1,23 @@
-# 部署用示例：复制为 jar 同目录的 agent.yaml（不要把真实密钥提交进仓库）
+# 部署用示例：复制为启动目录同级的 agent.yaml（不要把真实密钥提交进仓库）
 #
-# 启动示例：
+# —— 分发任务 ——
+#   ./gradlew distFast    # Quarkus 默认 fast-jar → build/dist/fast/
+#   ./gradlew distUber    # 单文件 uber-jar → build/dist/uber/
+#   ./gradlew distSlim    # tree-shaking uber-jar → build/dist/slim/
+#   ./gradlew distJlink   # uber-jar + 精简 Java 25 → build/dist/jlink/
+#
+# distJlink（目标机无需安装 Java；须与构建同 OS/同架构）：
 #   export DEEPSEEK_API_KEY=sk-xxx
-#   java -jar java-ai-agent.jar
+#   cp agent.example.yaml agent.yaml
+#   ./run.sh
+#   # 或：./runtime/bin/java -jar app/java-ai-agent-runner.jar
+#   AGENT_CONFIG=/path/to/agent.yaml ./run.sh
+#   ./run.sh -Dagent.config=/path/to/agent.yaml
+#   JAVA_OPTS='-Xmx512m' ./run.sh
 #
-# 或显式指定配置文件：
-#   java -Dagent.config=/etc/java-ai-agent/agent.yaml -jar java-ai-agent.jar
-#   AGENT_CONFIG=/etc/java-ai-agent/agent.yaml java -jar java-ai-agent.jar
+# distUber / distSlim（需本机已安装 Java 25+）：
+#   cd build/dist/uber && ./run.sh
+#
 
 agent:
   model:

@@ -6,6 +6,23 @@ plugins {
 group = 'java-ai-agent'
 version = '1.0-SNAPSHOT'
 
+/*
+ * 分发任务（四选一，不要混跑冲突类型）：
+ *
+ *   ./gradlew distFast    — Quarkus 默认 fast-jar
+ *   ./gradlew distUber    — 单文件 uber-jar
+ *   ./gradlew distSlim    — tree-shaking uber-jar
+ *   ./gradlew distJlink   — uber-jar + jdeps/jlink 精简 Java 25 Runtime
+ *
+ * 与官方 quarkus-jlink 不同：应用仍是普通 classpath（runner.jar），
+ * 只对 JDK 做 jdeps → jlink，不把第三方依赖做成 JPMS 模块。
+ *
+ * distJlink 产物（build/dist/jlink/）：
+ *   runtime/bin/java
+ *   app/java-ai-agent-runner.jar
+ *   run.sh
+ *   运行：./run.sh   或  ./runtime/bin/java -jar app/java-ai-agent-runner.jar
+ */
 
 dependencies {
     implementation enforcedPlatform("io.quarkus.platform:quarkus-bom:3.39.1")
@@ -39,4 +56,312 @@ java {
 
 test {
     useJUnitPlatform()
+}
+
+def java25Launcher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(25)
+}
+
+def distRoot = layout.buildDirectory.dir('dist')
+def jlinkModulesFile = layout.buildDirectory.file('jlink-modules.txt')
+def jlinkRuntimeDir = layout.buildDirectory.dir('jlink-runtime')
+def runnerJarName = 'java-ai-agent-runner.jar'
+
+// Quarkus 反射/动态加载常见、jdeps 可能漏掉的 JDK 模块
+def jlinkExtraModules = [
+        'java.logging',
+        'java.management',
+        'java.naming',
+        'java.net.http',
+        'java.security.jgss',
+        'java.security.sasl',
+        'java.xml',
+        'jdk.crypto.ec',
+        'jdk.unsupported',
+        'jdk.zipfs',
+] as Set
+
+def distMode = [jarType: 'fast-jar', treeShake: 'none']
+
+def requestedTaskNames = gradle.startParameter.taskNames.collect { it.toString() }
+def taskRequested = { String name ->
+    requestedTaskNames.any { it == name || it.endsWith(":${name}") || it.endsWith(name) }
+}
+def wantFast = taskRequested('distFast')
+def wantUber = taskRequested('distUber')
+def wantSlim = taskRequested('distSlim')
+def wantJlink = taskRequested('distJlink')
+
+def jarModes = []
+if (wantFast) jarModes << 'fast'
+if (wantUber || wantJlink) jarModes << 'uber'
+if (wantSlim) jarModes << 'slim'
+if (jarModes.toSet().size() > 1) {
+    throw new GradleException(
+            "不要同时运行冲突的分发任务（${jarModes.join(', ')}）。请只选一个：distFast / distUber / distSlim / distJlink")
+}
+
+if (wantSlim) {
+    distMode.jarType = 'uber-jar'
+    distMode.treeShake = 'classes'
+} else if (wantUber || wantJlink) {
+    distMode.jarType = 'uber-jar'
+    distMode.treeShake = 'none'
+} else if (wantFast) {
+    distMode.jarType = 'fast-jar'
+    distMode.treeShake = 'none'
+}
+
+if (wantSlim || wantUber || wantJlink || wantFast) {
+    System.setProperty('quarkus.package.jar.type', distMode.jarType as String)
+    System.setProperty('quarkus.package.jar.tree-shake.mode', distMode.treeShake as String)
+    quarkus {
+        quarkusBuildProperties.put('package.jar.type', distMode.jarType)
+        quarkusBuildProperties.put('package.jar.tree-shake.mode', distMode.treeShake)
+    }
+}
+
+tasks.named('quarkusBuild') {
+    inputs.property('distJarType') { distMode.jarType }
+    inputs.property('distTreeShakeMode') { distMode.treeShake }
+}
+
+def findUberRunnerJar = {
+    def buildDir = layout.buildDirectory.get().asFile
+    def matches = buildDir.listFiles({ File dir, String name ->
+        name.endsWith('-runner.jar') && !name.contains('sources') && !name.contains('javadoc')
+    } as FilenameFilter)
+    if (matches == null || matches.length == 0) {
+        throw new GradleException("未找到 uber-jar runner（build/*-runner.jar）。请确认已用 uber-jar 打包。")
+    }
+    matches.sort { -it.lastModified() }[0]
+}
+
+def writeUnixRunScript = { File file, String javaCmd, String jarRelPath ->
+    file.text = """#!/usr/bin/env bash
+set -euo pipefail
+ROOT="\$(cd "\$(dirname "\$0")" && pwd)"
+cd "\$ROOT"
+# JVM 参数放在 -jar 之前（如 -Dagent.config=...）；也可用 JAVA_OPTS / AGENT_CONFIG
+exec ${javaCmd} \${JAVA_OPTS:-} "\$@" -jar "\$ROOT/${jarRelPath}"
+"""
+    file.setExecutable(true)
+}
+
+def writeWindowsRunScript = { File file, String javaCmd, String jarRelPath ->
+    file.text = """@echo off
+setlocal
+set ROOT=%~dp0
+cd /d "%ROOT%"
+REM JVM 参数放在 -jar 之前（如 -Dagent.config=...）；也可用 JAVA_OPTS / AGENT_CONFIG
+${javaCmd} %JAVA_OPTS% %* -jar "%ROOT%${jarRelPath.replace('/', '\\')}"
+"""
+}
+
+tasks.register('distFast') {
+    group = 'distribution'
+    description = 'Quarkus 默认 fast-jar → build/dist/fast/'
+    dependsOn tasks.named('quarkusBuild')
+    def outDir = distRoot.map { it.dir('fast') }
+    inputs.dir(layout.buildDirectory.dir('quarkus-app'))
+    outputs.dir(outDir)
+    doLast {
+        def staging = outDir.get().asFile
+        project.delete(staging)
+        staging.mkdirs()
+        project.copy {
+            from(layout.buildDirectory.dir('quarkus-app'))
+            into(new File(staging, 'quarkus-app'))
+        }
+        project.copy {
+            from('agent.example.yaml')
+            into(staging)
+        }
+        writeUnixRunScript(new File(staging, 'run.sh'), 'java', 'quarkus-app/quarkus-run.jar')
+        writeWindowsRunScript(new File(staging, 'run.bat'), 'java', 'quarkus-app/quarkus-run.jar')
+    }
+}
+
+tasks.register('distUber') {
+    group = 'distribution'
+    description = '单文件 uber-jar → build/dist/uber/'
+    dependsOn tasks.named('quarkusBuild')
+    def outDir = distRoot.map { it.dir('uber') }
+    outputs.dir(outDir)
+    doLast {
+        def staging = outDir.get().asFile
+        project.delete(staging)
+        def appDir = new File(staging, 'app')
+        appDir.mkdirs()
+        def runner = findUberRunnerJar()
+        project.copy {
+            from(runner)
+            into(appDir)
+            rename { runnerJarName }
+        }
+        project.copy {
+            from('agent.example.yaml')
+            into(staging)
+        }
+        writeUnixRunScript(new File(staging, 'run.sh'), 'java', "app/${runnerJarName}")
+        writeWindowsRunScript(new File(staging, 'run.bat'), 'java', "app/${runnerJarName}")
+    }
+}
+
+tasks.register('distSlim') {
+    group = 'distribution'
+    description = 'tree-shaking uber-jar → build/dist/slim/'
+    dependsOn tasks.named('quarkusBuild')
+    def outDir = distRoot.map { it.dir('slim') }
+    outputs.dir(outDir)
+    doLast {
+        def staging = outDir.get().asFile
+        project.delete(staging)
+        def appDir = new File(staging, 'app')
+        appDir.mkdirs()
+        def runner = findUberRunnerJar()
+        project.copy {
+            from(runner)
+            into(appDir)
+            rename { runnerJarName }
+        }
+        project.copy {
+            from('agent.example.yaml')
+            into(staging)
+        }
+        writeUnixRunScript(new File(staging, 'run.sh'), 'java', "app/${runnerJarName}")
+        writeWindowsRunScript(new File(staging, 'run.bat'), 'java', "app/${runnerJarName}")
+    }
+}
+
+tasks.register('resolveJdkModules') {
+    group = 'distribution'
+    description = '用 jdeps 分析 uber-jar 所需 JDK modules'
+    dependsOn tasks.named('quarkusBuild')
+    def javaHomeProvider = java25Launcher.map { it.metadata.installationPath.asFile }
+    inputs.property('javaHome', { javaHomeProvider.get().absolutePath })
+    inputs.property('extraModules', { jlinkExtraModules.toList().sort().join(',') })
+    inputs.files(fileTree(layout.buildDirectory) { include '*-runner.jar' })
+    outputs.file(jlinkModulesFile)
+    doLast {
+        def javaHome = javaHomeProvider.get()
+        def jdeps = new File(javaHome, 'bin/jdeps')
+        if (!jdeps.exists()) {
+            jdeps = new File(javaHome, 'bin/jdeps.exe')
+        }
+        if (!jdeps.exists()) {
+            throw new GradleException("当前 JDK 没有 jdeps: ${javaHome}")
+        }
+        def runner = findUberRunnerJar()
+        def cmd = [
+                jdeps.absolutePath,
+                '--ignore-missing-deps',
+                '--print-module-deps',
+                '--multi-release', '25',
+                runner.absolutePath,
+        ]
+        def process = new ProcessBuilder(cmd)
+                .redirectError(ProcessBuilder.Redirect.PIPE)
+                .start()
+        def stdoutText = process.inputStream.getText('UTF-8')
+        def stderrText = process.errorStream.getText('UTF-8')
+        def exitCode = process.waitFor()
+        if (exitCode != 0) {
+            logger.warn("jdeps 退出码 ${exitCode}，stderr:\n${stderrText}")
+        }
+        def detected = stdoutText.trim()
+                .readLines()
+                .findAll { it && !it.startsWith('Warning') }
+                .join('')
+                .trim()
+        def modules = new LinkedHashSet<String>()
+        if (detected) {
+            detected.split(',').each { modules.add(it.trim()) }
+        }
+        modules.add('java.base')
+        modules.addAll(jlinkExtraModules)
+        def joined = modules.findAll { it }.sort().join(',')
+        def out = jlinkModulesFile.get().asFile
+        out.parentFile.mkdirs()
+        out.text = joined + '\n'
+        logger.lifecycle("jlink modules: ${joined}")
+    }
+}
+
+tasks.register('bundleRuntime', Exec) {
+    group = 'distribution'
+    description = 'jlink 生成精简 Java 25 Runtime（仅 JDK modules）'
+    dependsOn tasks.named('resolveJdkModules')
+    def javaHomeProvider = java25Launcher.map { it.metadata.installationPath.asFile }
+    inputs.file(jlinkModulesFile)
+    inputs.property('javaHome', { javaHomeProvider.get().absolutePath })
+    outputs.dir(jlinkRuntimeDir)
+    doFirst {
+        def javaHome = javaHomeProvider.get()
+        def jlink = new File(javaHome, 'bin/jlink')
+        if (!jlink.exists()) {
+            jlink = new File(javaHome, 'bin/jlink.exe')
+        }
+        if (!jlink.exists()) {
+            throw new GradleException("当前 JDK 没有 jlink: ${javaHome}")
+        }
+        def modules = jlinkModulesFile.get().asFile.text.trim()
+        if (!modules) {
+            throw new GradleException("jlink modules 列表为空: ${jlinkModulesFile.get().asFile}")
+        }
+        def out = jlinkRuntimeDir.get().asFile
+        project.delete(out)
+        executable = jlink.absolutePath
+        args(
+                '--module-path', new File(javaHome, 'jmods').absolutePath,
+                '--add-modules', modules,
+                '--strip-debug',
+                '--no-header-files',
+                '--no-man-pages',
+                '--compress', 'zip-6',
+                '--output', out.absolutePath
+        )
+    }
+}
+
+tasks.register('distJlink') {
+    group = 'distribution'
+    description = 'uber-jar + 精简 Java 25 Runtime → build/dist/jlink/'
+    dependsOn tasks.named('quarkusBuild'), tasks.named('bundleRuntime')
+    def outDir = distRoot.map { it.dir('jlink') }
+    inputs.dir(jlinkRuntimeDir)
+    outputs.dir(outDir)
+    doLast {
+        def staging = outDir.get().asFile
+        project.delete(staging)
+        staging.mkdirs()
+
+        def appDir = new File(staging, 'app')
+        appDir.mkdirs()
+        def runner = findUberRunnerJar()
+        project.copy {
+            from(runner)
+            into(appDir)
+            rename { runnerJarName }
+        }
+        project.copy {
+            from(jlinkRuntimeDir)
+            into(new File(staging, 'runtime'))
+        }
+        project.copy {
+            from('agent.example.yaml')
+            into(staging)
+        }
+
+        writeUnixRunScript(
+                new File(staging, 'run.sh'),
+                '"$ROOT/runtime/bin/java"',
+                "app/${runnerJarName}"
+        )
+        writeWindowsRunScript(
+                new File(staging, 'run.bat'),
+                '"%ROOT%runtime\\bin\\java.exe"',
+                "app/${runnerJarName}"
+        )
+    }
 }
