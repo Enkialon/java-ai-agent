@@ -39,6 +39,10 @@ agent:
         base-url: https://api.openai.com/v1
         model: gpt-4o
 
+  # Agent Loop：模型回合上限（默认 20）
+  loop:
+    max-turns: 20
+
   # 工具权限：allow | deny | ask
   # ask 时 SSE 发出 ToolApprovalRequiredEvent，客户端 POST
   #   /api/agent/session/approvals/{callId}/approve|deny

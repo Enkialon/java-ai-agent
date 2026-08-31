@@ -100,7 +100,8 @@ public final class AgentConfigLoader {
                         e -> expandClient(e.getValue())));
         return new AgentConfig(
                 new AgentConfig.ModelConfig(config.model().active(), clients),
-                config.permissions());
+                config.permissions(),
+                config.loop());
     }
 
     private static AgentConfig.ModelClientSettings expandClient(

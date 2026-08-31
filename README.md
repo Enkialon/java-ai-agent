@@ -106,6 +106,9 @@ agent:
     bash: ask      # allow | deny | ask
     write: ask     # 控制 write / edit 工具
     network: deny  # 预留
+
+  loop:
+    max-turns: 20  # Agent 最大模型回合数
 ```
 
 | 配置项 | 说明 |
@@ -115,6 +118,7 @@ agent:
 | `permissions.bash` | Shell 工具（bash 或 powershell）权限 |
 | `permissions.write` | 写文件 / 编辑文件工具权限 |
 | `permissions.ask` | 需审批时，SSE 推送 `tool_approval_required` 事件 |
+| `loop.max-turns` | Agent 最大模型回合数（默认 20） |
 
 > **安全提示**：不要把真实 API Key 提交进 Git。`.gitignore` 已忽略根目录 `agent.yaml`。
 
@@ -280,7 +284,6 @@ xdg-open build/reports/tests/test/index.html   # Linux
 
 ## 已知限制
 
-- Agent 最大回合数固定为 20（见 `AgentLoopService`）
 - `network` 权限项为预留，尚未实现网络工具
 - Web UI 依赖 CDN 加载 marked / diff2html（离线环境需自行替换）
 - `distJlink` 产物与构建平台绑定，不能跨 OS/架构分发

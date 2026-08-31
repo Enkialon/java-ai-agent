@@ -8,6 +8,7 @@ import org.example.agent.application.event.AgentEventSink;
 import org.example.agent.application.runtime.AgentRunContext;
 import org.example.agent.application.tool.ToolExecutionService;
 import org.example.agent.domain.tool.ToolCall;
+import org.example.agent.infrastructure.config.AgentConfiguration;
 
 /**
  * Agent Loop：普通同步状态机，适合跑在虚拟线程上。
@@ -23,17 +24,18 @@ import org.example.agent.domain.tool.ToolCall;
 @ApplicationScoped
 public class AgentLoopService {
 
-    private static final int MAX_TURNS = 20;
-
     private final ModelTurnService modelTurnService;
     private final ToolExecutionService toolExecutionService;
+    private final int maxTurns;
 
     @Inject
     public AgentLoopService(
             ModelTurnService modelTurnService,
-            ToolExecutionService toolExecutionService) {
+            ToolExecutionService toolExecutionService,
+            AgentConfiguration configuration) {
         this.modelTurnService = modelTurnService;
         this.toolExecutionService = toolExecutionService;
+        this.maxTurns = configuration.get().loop().maxTurns();
     }
 
     public AgentRunResult run(AgentRunContext context, AgentEventSink sink) {
@@ -41,7 +43,7 @@ public class AgentLoopService {
         sink.emit(new AgentStartEvent());
 
         // 循环执行
-        for (int turn = 1; turn <= MAX_TURNS; turn++) {
+        for (int turn = 1; turn <= maxTurns; turn++) {
             // 执行模型
             TurnResult result = modelTurnService.run(context, sink);
 
@@ -56,6 +58,6 @@ public class AgentLoopService {
             }
         }
 
-        throw new IllegalStateException("Agent exceeded max turns: " + MAX_TURNS);
+        throw new IllegalStateException("Agent exceeded max turns: " + maxTurns);
     }
 }

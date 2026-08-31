@@ -10,15 +10,16 @@ import java.util.Optional;
  * 根配置：{@code agent.yaml} 反序列化结果。
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record AgentConfig(ModelConfig model, PermissionsConfig permissions) {
+public record AgentConfig(ModelConfig model, PermissionsConfig permissions, LoopConfig loop) {
 
     public AgentConfig {
         model = Objects.requireNonNullElseGet(model, ModelConfig::defaults);
         permissions = Objects.requireNonNullElseGet(permissions, PermissionsConfig::defaults);
+        loop = Objects.requireNonNullElseGet(loop, LoopConfig::defaults);
     }
 
     public static AgentConfig defaults() {
-        return new AgentConfig(ModelConfig.defaults(), PermissionsConfig.defaults());
+        return new AgentConfig(ModelConfig.defaults(), PermissionsConfig.defaults(), LoopConfig.defaults());
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -98,6 +99,22 @@ public record AgentConfig(ModelConfig model, PermissionsConfig permissions) {
 
         public static PermissionsConfig defaults() {
             return new PermissionsConfig("allow", "allow", "deny");
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record LoopConfig(Integer maxTurns) {
+
+        private static final int DEFAULT_MAX_TURNS = 20;
+
+        public LoopConfig {
+            if (maxTurns == null || maxTurns < 1) {
+                maxTurns = DEFAULT_MAX_TURNS;
+            }
+        }
+
+        public static LoopConfig defaults() {
+            return new LoopConfig(DEFAULT_MAX_TURNS);
         }
     }
 }

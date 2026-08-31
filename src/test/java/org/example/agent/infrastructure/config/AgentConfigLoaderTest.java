@@ -42,11 +42,29 @@ class AgentConfigLoaderTest {
     }
 
     @Test
+    void parseYaml_loadsLoopConfig() {
+        AgentConfig config = AgentConfigLoader.parseYaml("""
+                agent:
+                  loop:
+                    max-turns: 8
+                """);
+        assertEquals(8, config.loop().maxTurns());
+    }
+
+    @Test
+    void loopConfig_defaultsWhenMissingOrInvalid() {
+        assertEquals(20, AgentConfig.defaults().loop().maxTurns());
+        assertEquals(20, new AgentConfig.LoopConfig(null).maxTurns());
+        assertEquals(20, new AgentConfig.LoopConfig(0).maxTurns());
+    }
+
+    @Test
     void activeClient_missing_throws() {
         AgentConfig config = new AgentConfig(
                 new AgentConfig.ModelConfig("missing", Map.of(
                         "stub", AgentConfig.ModelClientSettings.stub())),
-                AgentConfig.PermissionsConfig.defaults());
+                AgentConfig.PermissionsConfig.defaults(),
+                AgentConfig.LoopConfig.defaults());
         assertThrows(IllegalStateException.class, config.model()::activeClient);
     }
 

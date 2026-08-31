@@ -22,6 +22,8 @@ import org.example.agent.domain.session.message.AgentMessage;
 import org.example.agent.domain.tool.Tool;
 import org.example.agent.domain.tool.ToolResult;
 import org.example.agent.domain.workspace.Workspace;
+import org.example.agent.infrastructure.config.AgentConfig;
+import org.example.agent.infrastructure.config.AgentConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -137,7 +139,8 @@ class AgentLoopServiceTest {
 
         AgentLoopService loopService = new AgentLoopService(
                 new ModelTurnService(modelHooks, new ContextBuilder(), modelClient),
-                new ToolExecutionService(new ToolHookService(List.of())));
+                new ToolExecutionService(new ToolHookService(List.of())),
+                new AgentConfiguration(AgentConfig.defaults()));
 
         loopService.run(newContext(), event -> {
         });
@@ -148,7 +151,8 @@ class AgentLoopServiceTest {
     private static AgentLoopService newLoopService(ModelClient modelClient) {
         return new AgentLoopService(
                 new ModelTurnService(new ModelHookService(List.of()), new ContextBuilder(), modelClient),
-                new ToolExecutionService(new ToolHookService(List.of())));
+                new ToolExecutionService(new ToolHookService(List.of())),
+                new AgentConfiguration(AgentConfig.defaults()));
     }
 
     private static AgentRunContext newContext(Tool... tools) {

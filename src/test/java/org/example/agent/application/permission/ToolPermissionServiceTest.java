@@ -182,7 +182,8 @@ class ToolPermissionServiceTest {
             ApprovalService approvalService) {
         AgentConfig config = new AgentConfig(
                 AgentConfig.ModelConfig.defaults(),
-                new AgentConfig.PermissionsConfig(bash, write, "deny"));
+                new AgentConfig.PermissionsConfig(bash, write, "deny"),
+                AgentConfig.LoopConfig.defaults());
         return new ToolPermissionService(new AgentConfiguration(config), approvalService);
     }
 
