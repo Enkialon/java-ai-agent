@@ -39,6 +39,26 @@ class AgentSessionManagerTest {
         assertEquals("U001", session.userId());
         assertTrue(session.messages().isEmpty());
         assertEquals(0L, session.version());
+        assertTrue(repository.findById("S001").isPresent());
+    }
+
+    @Test
+    void listForCurrentUser_returnsOwnedSessionsNewestFirst() {
+        AgentSession older = new AgentSession("S001", "U001", 100L);
+        AgentSession newer = new AgentSession("S002", "U001", 200L);
+        AgentSession otherUser = new AgentSession("S003", "U002", 300L);
+        repository.save(older);
+        repository.save(newer);
+        repository.save(otherUser);
+        newer.addMessage(new UserMessage("第二条"));
+
+        var summaries = manager("S002", "U001").listForCurrentUser();
+
+        assertEquals(2, summaries.size());
+        assertEquals("S002", summaries.get(0).sessionId());
+        assertEquals("第二条", summaries.get(0).title());
+        assertEquals("S001", summaries.get(1).sessionId());
+        assertEquals("新会话", summaries.get(1).title());
     }
 
     @Test

@@ -20,12 +20,18 @@ public class AgentSession {
     private String workspacePath;
     private String activeSkill;
     private final List<AgentMessage> messages;
+    private final long createdAt;
     private long version;
 
     public AgentSession(String sessionId, String userId) {
+        this(sessionId, userId, System.currentTimeMillis());
+    }
+
+    public AgentSession(String sessionId, String userId, long createdAt) {
         this.sessionId = Objects.requireNonNull(sessionId, "sessionId must not be null");
         this.userId = Objects.requireNonNull(userId, "userId must not be null");
         this.messages = new ArrayList<>();
+        this.createdAt = createdAt;
         this.version = 0L;
     }
 
@@ -74,5 +80,9 @@ public class AgentSession {
 
     public long version() {
         return version;
+    }
+
+    public long createdAt() {
+        return createdAt;
     }
 }

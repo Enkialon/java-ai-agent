@@ -7,6 +7,9 @@ import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.session.AgentSessionRepository;
 import org.example.agent.domain.session.SessionAccessDeniedException;
 
+import java.util.List;
+import java.util.Objects;
+
 /**
  * Agent 会话应用服务：从请求上下文获取或创建会话，并校验归属用户。
  */
@@ -33,7 +36,18 @@ public class AgentSessionManager {
                     assertOwnedBy(session, userId);
                     return session;
                 })
-                .orElseGet(() -> new AgentSession(sessionId, userId));
+                .orElseGet(() -> {
+                    AgentSession session = new AgentSession(sessionId, userId);
+                    repository.save(session);
+                    return session;
+                });
+    }
+
+    public List<SessionSummary> listForCurrentUser() {
+        String userId = Objects.requireNonNull(context.userId(), "userId must not be null");
+        return repository.findByUserId(userId).stream()
+                .map(SessionSummary::from)
+                .toList();
     }
 
     public void save(AgentSession session) {

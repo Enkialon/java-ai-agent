@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "coding-agent.sessions";
   const USER_KEY = "coding-agent.userId";
   const DEFAULT_SESSION_TITLE = "新会话";
 
@@ -27,15 +26,10 @@
   const ROOTS_PATH = "__roots__";
 
   /** @type {{id:string,title:string,createdAt:number}[]} */
-  let sessions = loadSessions();
-  let currentSessionId = sessions[0]?.id || createSessionId();
+  let sessions = [];
+  let currentSessionId = createSessionId();
   let userId = localStorage.getItem(USER_KEY) || createId("user");
   localStorage.setItem(USER_KEY, userId);
-
-  if (!sessions.find((s) => s.id === currentSessionId)) {
-    sessions.unshift({ id: currentSessionId, title: DEFAULT_SESSION_TITLE, createdAt: Date.now() });
-    saveSessions();
-  }
 
   /** @type {string|null} */
   let currentWorkspace = null;
@@ -51,10 +45,7 @@
   /** @type {Map<string, HTMLElement>} */
   const toolCards = new Map();
 
-  ensureSession();
-  renderSessionList();
-  setWorkspaceDisplay(null);
-  void refreshStatus().then(() => loadHistory());
+  void bootstrap();
 
   els.sendBtn.addEventListener("click", () => void sendPrompt());
   els.newSessionBtn.addEventListener("click", () => newSession());
@@ -93,6 +84,41 @@
       els.workspacePathBtn.textContent = "未选择目录";
       els.workspacePathBtn.classList.add("empty");
       els.workspacePathBtn.title = "点击选择本机目录";
+    }
+  }
+
+  async function bootstrap() {
+    await loadSessionList();
+    renderSessionList();
+    setWorkspaceDisplay(null);
+    await refreshStatus();
+    await loadHistory();
+  }
+
+  async function loadSessionList() {
+    try {
+      const res = await fetch("/api/agent/sessions", { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        sessions = (data.sessions || []).map((s) => ({
+          id: s.sessionId,
+          title: s.title || DEFAULT_SESSION_TITLE,
+          createdAt: s.createdAt || 0,
+        }));
+      }
+    } catch {
+      /* 保留现有 sessions */
+    }
+
+    if (sessions.length === 0) {
+      currentSessionId = createSessionId();
+      sessions = [{ id: currentSessionId, title: DEFAULT_SESSION_TITLE, createdAt: Date.now() }];
+      await refreshStatus();
+      return;
+    }
+
+    if (!sessions.find((s) => s.id === currentSessionId)) {
+      currentSessionId = sessions[0].id;
     }
   }
 
@@ -253,13 +279,6 @@
       return;
     }
 
-    const session = sessions.find((s) => s.id === currentSessionId);
-    if (session && (!session.title || session.title === DEFAULT_SESSION_TITLE)) {
-      session.title = message.slice(0, 48);
-      saveSessions();
-      renderSessionList();
-    }
-
     running = true;
     setSendEnabled(false);
     els.promptInput.value = "";
@@ -280,6 +299,8 @@
       running = false;
       setSendEnabled(true);
       finalizeText();
+      await loadSessionList();
+      renderSessionList();
     }
   }
 
@@ -669,13 +690,12 @@
     if (running) return;
     currentSessionId = createSessionId();
     sessions.unshift({ id: currentSessionId, title: DEFAULT_SESSION_TITLE, createdAt: Date.now() });
-    saveSessions();
     els.timeline.innerHTML = "";
     toolCards.clear();
     currentTextEl = null;
     setWorkspaceDisplay(null);
     renderSessionList();
-    refreshStatus();
+    void refreshStatus();
     setStatus("就绪", "idle");
   }
 
@@ -700,23 +720,6 @@
       els.sessionList.appendChild(li);
     }
     els.sessionLabel.textContent = shortId(currentSessionId);
-  }
-
-  function ensureSession() {
-    saveSessions();
-  }
-
-  function loadSessions() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(raw) ? raw : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveSessions() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 30)));
   }
 
   function createSessionId() {

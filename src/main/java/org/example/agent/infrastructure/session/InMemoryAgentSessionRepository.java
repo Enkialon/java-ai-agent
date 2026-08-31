@@ -4,6 +4,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.example.agent.domain.session.AgentSession;
 import org.example.agent.domain.session.AgentSessionRepository;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +22,18 @@ public class InMemoryAgentSessionRepository implements AgentSessionRepository {
     @Override
     public Optional<AgentSession> findById(String sessionId) {
         return Optional.ofNullable(sessions.get(sessionId));
+    }
+
+    @Override
+    public List<AgentSession> findByUserId(String userId) {
+        List<AgentSession> matched = new ArrayList<>();
+        for (AgentSession session : sessions.values()) {
+            if (session.userId().equals(userId)) {
+                matched.add(session);
+            }
+        }
+        matched.sort(Comparator.comparingLong(AgentSession::createdAt).reversed());
+        return List.copyOf(matched);
     }
 
     @Override

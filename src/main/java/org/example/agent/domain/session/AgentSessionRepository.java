@@ -1,5 +1,6 @@
 package org.example.agent.domain.session;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -10,6 +11,8 @@ import java.util.Optional;
 public interface AgentSessionRepository {
 
     Optional<AgentSession> findById(String sessionId);
+
+    List<AgentSession> findByUserId(String userId);
 
     void save(AgentSession session);
 

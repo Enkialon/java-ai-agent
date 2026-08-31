@@ -196,6 +196,8 @@ JAVA_OPTS='-Xmx512m' ./run.sh
 |------|------|------|
 | `POST` | `/api/agent/chat` | 发送消息，响应为 SSE（`Content-Type: text/event-stream`） |
 | `GET` | `/api/agent/status` | 当前会话 ID、工作区、模型信息 |
+| `GET` | `/api/agent/sessions` | 当前用户的会话列表（内存） |
+| `GET` | `/api/agent/session/messages` | 当前会话的消息历史（内存） |
 | `PUT` | `/api/agent/session/workspace` | 绑定工作目录 `{"path":"/your/project"}` |
 | `GET` | `/api/agent/session/workspace` | 查询当前工作区 |
 | `GET` | `/api/agent/filesystem` | 浏览本机目录（供 UI 选目录） |
