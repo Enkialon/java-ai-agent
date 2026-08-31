@@ -54,7 +54,7 @@
   ensureSession();
   renderSessionList();
   setWorkspaceDisplay(null);
-  refreshStatus();
+  void refreshStatus().then(() => loadHistory());
 
   els.sendBtn.addEventListener("click", () => void sendPrompt());
   els.newSessionBtn.addEventListener("click", () => newSession());
@@ -107,6 +107,75 @@
     } catch {
       /* ignore */
     }
+  }
+
+  async function loadHistory() {
+    els.timeline.innerHTML = "";
+    toolCards.clear();
+    currentTextEl = null;
+    currentTextRaw = "";
+    try {
+      const res = await fetch("/api/agent/session/messages", { headers: authHeaders() });
+      if (!res.ok) {
+        setStatus("就绪", "idle");
+        return;
+      }
+      const data = await res.json();
+      renderHistory(data.messages || []);
+      setStatus("就绪", "idle");
+    } catch {
+      setStatus("就绪", "idle");
+    }
+    scrollToBottom();
+  }
+
+  function renderHistory(messages) {
+    /** @type {Map<string, {toolName:string, arguments:string}>} */
+    const toolMeta = new Map();
+    for (const msg of messages) {
+      switch (msg.type) {
+        case "user":
+          appendTask(msg.content || "");
+          break;
+        case "assistant":
+          appendAssistantText(msg.content || "");
+          break;
+        case "tool_call":
+          toolMeta.set(msg.callId, {
+            toolName: msg.toolName || "tool",
+            arguments: msg.arguments || "{}",
+          });
+          {
+            const card = ensureToolCard(msg.callId, msg.toolName, msg.arguments);
+            card.classList.add("running");
+            setToolStatus(card, "●");
+            maybePrepareToolExtras(card, msg.toolName, msg.arguments);
+          }
+          break;
+        case "tool_result": {
+          const meta = toolMeta.get(msg.callId) || { toolName: "tool", arguments: "{}" };
+          const card = ensureToolCard(msg.callId, meta.toolName, meta.arguments);
+          const result = msg.result || "";
+          const ok = !result.startsWith("Error:");
+          fillToolResult(card, meta.toolName, safeParse(meta.arguments), result, ok);
+          card.classList.remove("running");
+          card.classList.toggle("success", ok);
+          card.classList.toggle("error", !ok);
+          setToolStatus(card, ok ? "✓" : "✕");
+          break;
+        }
+        default:
+          console.debug("Unknown history message", msg);
+      }
+    }
+  }
+
+  function appendAssistantText(content) {
+    finalizeText();
+    const el = document.createElement("div");
+    el.className = "item-text";
+    el.innerHTML = `<div class="md">${renderMarkdown(content)}</div>`;
+    els.timeline.appendChild(el);
   }
 
   async function openDirPicker() {
@@ -613,13 +682,12 @@
   function switchSession(id) {
     if (running || id === currentSessionId) return;
     currentSessionId = id;
-    els.timeline.innerHTML = "";
     toolCards.clear();
     currentTextEl = null;
+    currentTextRaw = "";
     setWorkspaceDisplay(null);
     renderSessionList();
-    refreshStatus();
-    setStatus("就绪（历史时间线暂未加载）", "idle");
+    void refreshStatus().then(() => loadHistory());
   }
 
   function renderSessionList() {

@@ -1,5 +1,8 @@
 package org.example.agent.domain.session.message;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 import java.util.Objects;
 
 /**
@@ -7,6 +10,13 @@ import java.util.Objects;
  * <p>
  * 按真实发生顺序保存在会话中，构成执行时间线。
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = AgentMessage.UserMessage.class, name = "user"),
+        @JsonSubTypes.Type(value = AgentMessage.AssistantMessage.class, name = "assistant"),
+        @JsonSubTypes.Type(value = AgentMessage.ToolCallMessage.class, name = "tool_call"),
+        @JsonSubTypes.Type(value = AgentMessage.ToolResultMessage.class, name = "tool_result")
+})
 public sealed interface AgentMessage
         permits AgentMessage.UserMessage,
                 AgentMessage.AssistantMessage,
