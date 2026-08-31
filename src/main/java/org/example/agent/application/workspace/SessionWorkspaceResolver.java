@@ -33,6 +33,9 @@ public class SessionWorkspaceResolver implements WorkspaceResolver {
         if (path == null || path.isBlank()) {
             throw new IllegalArgumentException("path must not be blank");
         }
+        if (LocalFilesystemBrowser.ROOTS_PATH.equals(path.trim())) {
+            throw new IllegalArgumentException("请选择具体目录，不能绑定盘符列表");
+        }
         Path root = Path.of(path).toAbsolutePath().normalize();
         if (!Files.isDirectory(root)) {
             throw new IllegalArgumentException("workspace is not a directory: " + root);

@@ -20,8 +20,11 @@
     dirCurrentPath: document.getElementById("dirCurrentPath"),
     dirEntryList: document.getElementById("dirEntryList"),
     dirUpBtn: document.getElementById("dirUpBtn"),
+    dirRootsBtn: document.getElementById("dirRootsBtn"),
     dirConfirmBtn: document.getElementById("dirConfirmBtn"),
   };
+
+  const ROOTS_PATH = "__roots__";
 
   /** @type {{id:string,title:string,createdAt:number}[]} */
   let sessions = loadSessions();
@@ -60,6 +63,7 @@
   els.dirUpBtn.addEventListener("click", () => {
     if (pickerParent) void loadDir(pickerParent);
   });
+  els.dirRootsBtn.addEventListener("click", () => void loadDir(ROOTS_PATH));
   els.dirConfirmBtn.addEventListener("click", () => void confirmDir());
   els.dirPicker.querySelectorAll("[data-close]").forEach((el) => {
     el.addEventListener("click", () => closeDirPicker());
@@ -128,13 +132,15 @@
     const data = await res.json();
     pickerPath = data.path;
     pickerParent = data.parent || null;
-    els.dirCurrentPath.textContent = data.path;
+    const atRoots = pickerPath === ROOTS_PATH;
+    els.dirCurrentPath.textContent = atRoots ? "此电脑（盘符）" : data.path;
     els.dirUpBtn.disabled = !pickerParent;
+    els.dirConfirmBtn.disabled = atRoots;
 
     els.dirEntryList.innerHTML = "";
     if (!data.entries || data.entries.length === 0) {
       const empty = document.createElement("li");
-      empty.textContent = "（无子目录）";
+      empty.textContent = atRoots ? "（未发现可用盘符）" : "（无子目录）";
       empty.style.cursor = "default";
       empty.style.color = "var(--muted)";
       empty.addEventListener("click", (e) => e.stopPropagation());
@@ -152,7 +158,7 @@
   }
 
   async function confirmDir() {
-    if (!pickerPath) return;
+    if (!pickerPath || pickerPath === ROOTS_PATH) return;
     const res = await fetch("/api/agent/session/workspace", {
       method: "PUT",
       headers: authHeaders({ "Content-Type": "application/json" }),
