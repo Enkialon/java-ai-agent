@@ -4,17 +4,17 @@ import org.example.agent.infrastructure.sandbox.SandboxCommandExecutor;
 import org.example.agent.infrastructure.sandbox.WorkingDirectorySelector;
 
 /**
- * 通过 {@link SandboxCommandExecutor} 执行 bash 命令（POSIX 宿主机）。
+ * 通过 {@link SandboxCommandExecutor} 执行 PowerShell 命令（Windows 宿主机）。
  */
-public final class BashTool extends AbstractShellTool {
+public final class PowerShellTool extends AbstractShellTool {
 
-    public BashTool(
+    public PowerShellTool(
             WorkingDirectorySelector workingDirectorySelector,
             SandboxCommandExecutor commandExecutor) {
         super(workingDirectorySelector, commandExecutor);
     }
 
-    BashTool(
+    PowerShellTool(
             WorkingDirectorySelector workingDirectorySelector,
             SandboxCommandExecutor commandExecutor,
             long timeoutSeconds,
@@ -24,12 +24,13 @@ public final class BashTool extends AbstractShellTool {
 
     @Override
     public String name() {
-        return "bash";
+        return "powershell";
     }
 
     @Override
     public String description() {
-        return "Run a bash command in the workspace shell. "
+        return "Run a PowerShell command in the workspace. "
+                + "Prefer Windows-native commands and paths (e.g. Get-ChildItem, dir). "
                 + "Optional working_directory must stay inside the workspace. "
                 + "Times out after " + timeoutSeconds() + "s; output capped at "
                 + maxOutputChars() + " chars.";

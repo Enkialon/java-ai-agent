@@ -15,7 +15,7 @@ agent:
         base-url: https://api.deepseek.com
         model: deepseek-v4-flash
   # 工具权限：allow | deny | ask（ask 时 SSE 推送审批事件，需 POST approve/deny）
-  # bash → bash 工具；write → write/edit 工具；network 预留
+  # bash → bash / powershell 工具；write → write/edit 工具；network 预留
   permissions:
     bash: ask
     write: ask

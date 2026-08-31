@@ -3,7 +3,7 @@ package org.example.agent.infrastructure.tool.builtin;
 import org.example.agent.domain.tool.ToolCall;
 import org.example.agent.domain.tool.ToolResult;
 import org.example.agent.domain.workspace.Workspace;
-import org.example.agent.infrastructure.sandbox.LocalSandboxRuntime;
+import org.example.agent.infrastructure.sandbox.PosixSandboxRuntime;
 import org.example.agent.infrastructure.sandbox.ProcessRunner;
 import org.example.agent.infrastructure.sandbox.SandboxCommandExecutor;
 import org.example.agent.infrastructure.sandbox.WorkspaceWorkingDirectorySelector;
@@ -153,7 +153,7 @@ class BuiltinToolsTest {
     private BashTool newBashTool(long timeoutSeconds, int maxOutputChars) {
         return new BashTool(
                 new WorkspaceWorkingDirectorySelector(),
-                new SandboxCommandExecutor(new ProcessRunner(), new LocalSandboxRuntime()),
+                new SandboxCommandExecutor(new ProcessRunner(), new PosixSandboxRuntime()),
                 timeoutSeconds,
                 maxOutputChars);
     }

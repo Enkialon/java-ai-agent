@@ -160,6 +160,18 @@ class ToolPermissionServiceTest {
         assertTrue(denied.isEmpty());
     }
 
+    @Test
+    void powershell_mapsToBashPermission() {
+        ToolPermissionService permissions = newPermissions("deny", "allow");
+        Optional<ToolResult> denied = permissions.authorize(
+                new AgentRunContext(new AgentSession("S001", "U001"), new RuntimeContext()),
+                new ToolCall("c1", "powershell", "{\"command\":\"dir\"}"),
+                event -> {
+                });
+        assertTrue(denied.isPresent());
+        assertTrue(denied.get().content().contains("Permission bash"));
+    }
+
     private static ToolPermissionService newPermissions(String bash, String write) {
         return newPermissions(bash, write, new ApprovalService(Duration.ofSeconds(1)));
     }

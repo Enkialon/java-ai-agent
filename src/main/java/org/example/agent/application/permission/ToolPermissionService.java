@@ -19,7 +19,7 @@ import java.util.Optional;
 /**
  * 按 {@code agent.yaml} permissions 对工具调用做 allow / deny / ask 裁决。
  * <p>
- * 映射：{@code bash}→bash；{@code write}/{@code edit}→write；其余工具默认 allow。
+ * 映射：{@code bash}/{@code powershell}→bash；{@code write}/{@code edit}→write；其余工具默认 allow。
  * {@code network} 预留，当前无对应内置工具。
  */
 @ApplicationScoped
@@ -102,7 +102,7 @@ public class ToolPermissionService {
      */
     static Optional<String> permissionKeyFor(String toolName) {
         return switch (toolName) {
-            case "bash" -> Optional.of("bash");
+            case "bash", "powershell" -> Optional.of("bash");
             case "write", "edit" -> Optional.of("write");
             default -> Optional.empty();
         };

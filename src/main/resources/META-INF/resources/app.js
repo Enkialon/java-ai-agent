@@ -441,7 +441,7 @@
     card.querySelector(".tool-name").textContent = toolName || card.dataset.toolName;
     const args = safeParse(argumentsJson || card.dataset.arguments || "{}");
     const summary = card.querySelector(".tool-summary");
-    if (toolName === "bash") {
+    if (toolName === "bash" || toolName === "powershell") {
       summary.textContent = args.command ? "$ " + args.command : "";
     } else if (toolName === "read" || toolName === "write" || toolName === "edit") {
       summary.textContent = args.path || "";
@@ -465,7 +465,7 @@
     body.classList.remove("open");
     body.innerHTML = "";
 
-    if (toolName === "bash") {
+    if (toolName === "bash" || toolName === "powershell") {
       const pre = document.createElement("pre");
       pre.className = "terminal";
       const cmd = args.command ? `$ ${args.command}\n\n` : "";
